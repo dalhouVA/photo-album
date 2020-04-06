@@ -3,12 +3,15 @@ package database
 import java.util.UUID
 
 import components.ImageDAO
-import slick.jdbc.H2Profile.api._
+import slick.jdbc.JdbcBackend.DatabaseDef
+import slick.jdbc.JdbcProfile
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-object H2DataBase {
+class DataBase(config: JdbcProfile, db: DatabaseDef) {
+
+  import config.api._
 
   private class Images(tag: Tag) extends Table[ImageDAO](tag, "IMAGES") {
     def id = column[UUID]("ID", O.PrimaryKey)
@@ -27,8 +30,6 @@ object H2DataBase {
 
   private val images = TableQuery[Images]
 
-  private val db = Database.forConfig("h2mem")
-
   private val setup = DBIO.seq(images.schema.create)
 
   def init: Future[Unit] = db.run(setup)
@@ -46,4 +47,5 @@ object H2DataBase {
   def delete(id: UUID): Future[Unit] = for {
     img <- getImageByID(id)
   } yield db.run(delete(img))
+
 }
