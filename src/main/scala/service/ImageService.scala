@@ -1,12 +1,11 @@
 package service
 
-
 import java.util.UUID
 
 import components.Image
-import repository.H2ImageRepo
+import repository.ImageRepo
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait ImageService {
 
@@ -20,12 +19,12 @@ trait ImageService {
 
 }
 
-object H2ImageService extends ImageService {
-  override def upload(img: Image): Future[Unit] = H2ImageRepo.create(img)
+class DBImageService(repo: ImageRepo)(implicit ex: ExecutionContext) extends ImageService {
+  override def upload(img: Image): Future[Unit] = repo.create(img)
 
-  override def getImg(id: UUID): Future[Image] = H2ImageRepo.getByID(id)
+  override def getImg(id: UUID): Future[Image] = repo.getByID(id)
 
-  override def getAllImg: Future[List[Image]] = H2ImageRepo.getAll
+  override def getAllImg: Future[List[Image]] = repo.getAll
 
-  override def delete(id: UUID): Future[Unit] = H2ImageRepo.delete(id)
+  override def delete(id: UUID): Future[Unit] = repo.delete(id)
 }
