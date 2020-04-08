@@ -7,7 +7,7 @@ import service.DBImageService
 
 import scala.concurrent.ExecutionContextExecutor
 
-object Main extends App with Routes{
+object Main extends App with Routes {
   implicit val system: ActorSystem = ActorSystem("photo-album")
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 

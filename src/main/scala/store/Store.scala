@@ -1,11 +1,14 @@
 package store
 
-import akka.http.scaladsl.model.Uri
+import java.io.File
+
+import akka.http.scaladsl.server.directives.FileInfo
 
 trait Store {
-  def saveImage:Uri
+  def saveImage(fileInfo: FileInfo):File
 }
 
 object StoreImage extends Store {
-  override def saveImage: Uri = ???
+  override def saveImage(fileInfo: FileInfo): File =  new File("D:\\img", fileInfo.fileName)
+
 }
