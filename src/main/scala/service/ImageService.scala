@@ -11,7 +11,7 @@ trait ImageService {
 
   def upload(img: Image): Future[Unit]
 
-  def getImg(id: UUID): Future[Option[Image]]
+  def getImgById(id: UUID): Future[Option[Image]]
 
   def getAllImg: Future[List[Image]]
 
@@ -26,7 +26,7 @@ trait ImageService {
 class DBImageService(repo: ImageRepo)(implicit ex: ExecutionContext) extends ImageService {
   override def upload(img: Image): Future[Unit] = repo.create(img)
 
-  override def getImg(id: UUID): Future[Option[Image]] = repo.getByID(id)
+  override def getImgById(id: UUID): Future[Option[Image]] = repo.getByID(id)
 
   override def getAllImg: Future[List[Image]] = repo.getAll
 

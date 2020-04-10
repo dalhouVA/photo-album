@@ -13,20 +13,20 @@ import io.circe.generic.auto._
 import service.ImageService
 import store.StoreImage
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 trait Routes {
   def route(service: ImageService)(implicit exc: ExecutionContext): Route = pathPrefix("album") {
-    authenticateBasic("secure", userAuthenticator) {
+    authenticateBasicAsync("secure", userAuthenticator) {
       case ok if ok == StatusCodes.OK =>
         get {
           path(Segment) { id =>
-            onSuccess(for (img <- service.getImg(UUID.fromString(id))) yield img match {
+            onSuccess(for (img <- service.getImgById(UUID.fromString(id))) yield img match {
               case Some(image) => complete(ok, ImageDTOConverter.fromImage(image))
               case None => complete(StatusCodes.BadRequest, "Image with this id not found")
             }) { result => result }
           } ~
-            complete(service.getAllImg)
+            complete(service.getAllImg.map(_.map(ImageDTOConverter.fromImage)))
         } ~
           post {
             (path("upload") & parameter(Symbol("visibility").as[Boolean])) { vis =>
@@ -49,19 +49,19 @@ trait Routes {
               case None => complete(code, "You have to authorize for get access")
             }) { result => result }
           } ~
-            complete(service.getPublicImages)
+            complete(service.getPublicImages.map(_.map(ImageDTOConverter.fromImage)))
         }
     }
   }
 
-  def userAuthenticator(credentials: Credentials): Option[StatusCode] = credentials match {
-    case p@Credentials.Provided(id) if p.verify(UsersMap.map.getOrElse(id, "")) => Some(StatusCodes.OK)
-    case _ => Some(StatusCodes.Unauthorized)
+  def userAuthenticator(credentials: Credentials): Future[Option[StatusCode]] = credentials match {
+    case p@Credentials.Provided(id) if p.verify(Users.listOfUsers.getOrElse(id, "")) => Future.successful(Some(StatusCodes.OK))
+    case _ => Future.successful(Some(StatusCodes.Unauthorized))
   }
 }
 
-object UsersMap {
-  val map: Map[String, String] = Map(
+object Users {
+  val listOfUsers: Map[String, String] = Map(
     "justice" -> "ololo",
     "jane" -> "123"
   )
