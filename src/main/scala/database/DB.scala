@@ -2,9 +2,12 @@ package database
 
 import java.util.UUID
 
+import core.Role.{Guest, _}
+import core.User._
 import dao.ImageDAO
+import slick.ast.BaseTypedType
 import slick.jdbc.JdbcBackend._
-import slick.jdbc.{H2Profile, JdbcProfile}
+import slick.jdbc.{H2Profile, JdbcProfile, JdbcType}
 
 trait DB {
   val config: JdbcProfile
@@ -21,14 +24,19 @@ trait DB {
 
     def visibility = column[Boolean]("VISIBILITY")
 
-    def * = (id.?,name, uri, visibility) <> ((ImageDAO.mapperTo _).tupled, ImageDAO.unapply)
+    def * = (id.?, name, uri, visibility) <> ((ImageDAO.mapperTo _).tupled, ImageDAO.unapply)
 
   }
 
   val images = TableQuery[Images]
 }
 
-trait H2DB extends DB{
+trait H2DBFile extends DB {
   override lazy val config = H2Profile
   override lazy val db = Database.forConfig("h2file")
+}
+
+trait H2DBMem extends DB {
+  override lazy val config = H2Profile
+  override lazy val db = Database.forConfig("h2mem")
 }

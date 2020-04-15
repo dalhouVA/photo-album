@@ -4,11 +4,15 @@ import java.io.File
 import java.util.UUID
 
 import akka.http.scaladsl.model.Multipart.FormData
-import akka.http.scaladsl.model.headers.BasicHttpCredentials
+import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpCredentials}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, Multipart, StatusCodes}
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.directives.AuthenticationDirective
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import core.Image
+import authentication.Authentication
+import core.User._
+import core.{Image, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import dto.ImageDTO
 import dto.converters.ImageDTOConverter
@@ -34,7 +38,8 @@ class RoutesSpec() extends AnyWordSpec with Matchers with ScalatestRouteTest {
     val listImagesDTO: List[ImageDTO] = listImages.map(ImageDTOConverter.fromImage)
     val listImagesDTOPublic: List[ImageDTO] = listImages.filter(_.visibility).map(ImageDTOConverter.fromImage)
     val validAuthenticate: BasicHttpCredentials = BasicHttpCredentials("jane", "123")
-    val imageRoute: Route = route(new MockImageService(listImages))
+    val imageRoute: Route = route(new MockImageService(listImages), new MockAuthenticate(Some(validAuthenticate)))
+    val guestImageRoute: Route = route(new MockImageService(listImages), new MockAuthenticate(None))
     val ok: StatusCodes.Success = StatusCodes.OK
     val created: StatusCodes.Success = StatusCodes.Created
     val bad: StatusCodes.ClientError = StatusCodes.BadRequest
@@ -48,60 +53,60 @@ class RoutesSpec() extends AnyWordSpec with Matchers with ScalatestRouteTest {
 
   "The server" should {
     "return list of all images" in new RoutesSpecContext {
-      Get("/album") ~> addCredentials(validAuthenticate) ~> imageRoute ~> check {
-        status shouldBe StatusCodes.OK
+      Get("/album") ~> imageRoute ~> check {
+        status shouldBe ok
         responseAs[List[ImageDTO]] shouldBe listImagesDTO
       }
     }
     "return list of images with visibility = true" in new RoutesSpecContext {
-      Get("/album") ~> imageRoute ~> check {
+      Get("/album") ~> guestImageRoute ~> check {
         status shouldBe ok
         responseAs[List[ImageDTO]] shouldBe listImagesDTOPublic
       }
     }
     "return image by id with valid credentials when visibility = false" in new RoutesSpecContext {
-      Get(s"/album/$dogID") ~> addCredentials(validAuthenticate) ~> imageRoute ~> check {
+      Get(s"/album/$dogID") ~> imageRoute ~> check {
         status shouldBe ok
         responseAs[Option[ImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(dog))
       }
     }
     "return image by id with valid credentials when visibility = true" in new RoutesSpecContext {
-      Get(s"/album/$catID") ~> addCredentials(validAuthenticate) ~> imageRoute ~> check {
-        status shouldBe ok
-        responseAs[Option[ImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(cat))
-      }
-    }
-    "return image by id without credentials when visibility = true" in new RoutesSpecContext {
       Get(s"/album/$catID") ~> imageRoute ~> check {
         status shouldBe ok
         responseAs[Option[ImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(cat))
       }
     }
+    "return image by id without credentials when visibility = true" in new RoutesSpecContext {
+      Get(s"/album/$catID") ~> guestImageRoute ~> check {
+        status shouldBe ok
+        responseAs[Option[ImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(cat))
+      }
+    }
     "return unauthorized error" in new RoutesSpecContext {
-      Get(s"/album/$dogID") ~> imageRoute ~> check {
+      Get(s"/album/$dogID") ~> guestImageRoute ~> check {
         status shouldBe unauthorized
         responseAs[String] shouldBe "You have to authorize for get access"
       }
     }
     "return unauthorized error when pass invalid id" in new RoutesSpecContext {
-      Get(s"/album/$pigID") ~> imageRoute ~> check {
+      Get(s"/album/$pigID") ~> guestImageRoute ~> check {
         status shouldBe unauthorized
         responseAs[String] shouldBe "You have to authorize for get access"
       }
     }
     "return bad request error" in new RoutesSpecContext {
-      Get(s"/album/$pigID") ~> addCredentials(validAuthenticate) ~> imageRoute ~> check {
+      Get(s"/album/$pigID") ~> imageRoute ~> check {
         status shouldBe bad
         responseAs[String] shouldBe "Image with this id not found"
       }
     }
     "delete image by id" in new RoutesSpecContext {
-      Delete(s"/album/$catID") ~> addCredentials(validAuthenticate) ~> imageRoute ~> check {
+      Delete(s"/album/$catID") ~> imageRoute ~> check {
         status shouldBe ok
       }
     }
     "create new entity" in new RoutesSpecContext {
-      Post("/album/upload?visibility=true", multipartForm) ~> addCredentials(validAuthenticate) ~> imageRoute ~> check {
+      Post("/album/upload?visibility=true", multipartForm) ~> imageRoute ~> check {
         status shouldBe created
       }
     }
@@ -120,4 +125,14 @@ class RoutesSpec() extends AnyWordSpec with Matchers with ScalatestRouteTest {
 
     override def getPublicImageById(id: UUID): Future[Option[Image]] = getPublicImages.map(_.find(_.id.contains(id)))
   }
+
+  class MockAuthenticate(credentials: Option[HttpCredentials]) extends Authentication {
+    override def authenticate: AuthenticationDirective[User] = {
+      credentials match {
+        case Some(_) => AuthenticationDirective(provide(RegisteredUser("user", "pass", Role.User)))
+        case None => AuthenticationDirective(provide(Guest))
+      }
+    }
+  }
+
 }

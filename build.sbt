@@ -6,15 +6,6 @@ val akkaVersion = "2.6.3"
 val circeVersion = "0.13.0"
 val slickVersion = "3.3.2"
 
-lazy val core = project
-lazy val store = project
-lazy val dao = project.dependsOn(core)
-lazy val dto = project.dependsOn(core)
-lazy val database = project.dependsOn(dao)
-lazy val repository = project.dependsOn(database, core, dao)
-lazy val service = project.dependsOn(repository, core)
-lazy val route = project.dependsOn(service, store, dto, core)
-
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http" % "10.1.11",
   "de.heikoseeberger" %% "akka-http-circe" % "1.31.0",
