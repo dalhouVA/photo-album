@@ -2,6 +2,7 @@ package database
 
 import java.util.UUID
 
+import core.Role
 import core.Role.{Guest, _}
 import core.User._
 import dao.ImageDAO
@@ -14,6 +15,16 @@ trait DB {
   val db: DatabaseDef
 
   import config.api._
+
+  implicit val RoleColumnType: JdbcType[UserRole] with BaseTypedType[UserRole] = MappedColumnType.base[UserRole, String](
+    {
+      case User => "user"
+      case Guest => "guest"
+    }, {
+      case "user" => User
+      case "guest" => Guest
+    }
+  )
 
   class Images(tag: Tag) extends Table[ImageDAO](tag, "IMAGES") {
     def id = column[UUID]("ID", O.PrimaryKey)
@@ -29,6 +40,23 @@ trait DB {
   }
 
   val images = TableQuery[Images]
+
+  class Users(tag: Tag) extends Table[RegisteredUser](tag, "USERS") {
+    def name = column[String]("NAME", O.Unique)
+
+    def pass = column[String]("PASSWORD")
+
+    def role = column[UserRole]("ROLE")
+
+    def * = (name, pass, role) <> ((RegisteredUser.mapperTo _).tupled, RegisteredUser.unapply)
+  }
+
+  val users = TableQuery[RegisteredUser]
+
+//  val users = Map(
+//    "justice" -> ("ololo", Role.User),
+//    "jane" -> ("123", Role.User)
+//  )
 }
 
 trait H2DBFile extends DB {
