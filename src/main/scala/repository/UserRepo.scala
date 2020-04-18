@@ -1,16 +1,21 @@
 package repository
 
-import core.User.{RegisteredUser, User}
-import database.{DB, H2DBFile}
+import core.LoggedInUser
+import database.Tables
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 trait UserRepo {
 
-  def getUserByName(name: String): Option[User]
+  def getUserByName(name: String): Future[LoggedInUser]
 
 }
 
-trait UserRepoDb extends UserRepo with DB {
+trait UserRepoDB extends UserRepo with Tables {
 
-  override def getUserByName(name: String): Option[User] = users.get(name).map(cred => RegisteredUser(name, cred._1, cred._2))
+  import config.api._
+
+  override def getUserByName(name: String): Future[LoggedInUser] = db.run(users.filter(_.name === name).result).map(_.headOption).map(_.getOrElse(LoggedInUser.guest))
 
 }

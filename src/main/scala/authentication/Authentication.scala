@@ -1,27 +1,29 @@
 package authentication
 
+import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.directives.{AuthenticationDirective, Credentials}
-import core.User._
+import akka.http.scaladsl.server.directives.Credentials
+import core.LoggedInUser
 import repository.UserRepo
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 trait Authentication {
-
-  def authenticate: AuthenticationDirective[User]
-
-
+  def authenticate: Directive1[LoggedInUser]
 }
 
 class Auth(repo: UserRepo) extends Authentication {
-  private def authenticator(credentials: Credentials): Option[User] = credentials match {
-    case p@Credentials.Provided(id) if p.verify(repo.getUserByName(id).map(_.pass).getOrElse("guest")) => repo.getUserByName(id).orElse(Some(Guest))
-    case _ => Some(Guest)
+  private def authenticator(credentials: Credentials): Future[LoggedInUser] = credentials match {
+    case p@Credentials.Provided(id) =>
+      repo
+        .getUserByName(id)
+        .map(user => if (p.verify(user.pass)) user else LoggedInUser.guest)
+    case _ => Future.successful(LoggedInUser.guest)
   }
 
-  def authenticate: AuthenticationDirective[User] =
-    extractCredentials.map {
-      case cred@Some(_) => cred.flatMap(_ => authenticator(Credentials(cred))).getOrElse(Guest)
-      case None => Guest
+  def authenticate: Directive1[LoggedInUser] =
+    extractCredentials.flatMap { cred =>
+      onSuccess(authenticator(Credentials(cred)))
     }
 }

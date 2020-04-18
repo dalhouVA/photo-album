@@ -7,8 +7,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive0, Route}
 import authentication.Authentication
 import core.Role._
-import core.User.User
-import core.{Image, Role}
+import core.{Image, Role, LoggedInUser}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import dto.converters.ImageDTOConverter
 import io.circe.generic.auto._
@@ -58,7 +57,7 @@ trait Routes {
     }
   }
 
-  def authorize(user: User, requiredLevel: UserRole): Directive0 =
+  def authorize(user: LoggedInUser, requiredLevel: UserRole): Directive0 =
     if (user.role == requiredLevel)
       pass
     else reject

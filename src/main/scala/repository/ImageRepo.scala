@@ -5,7 +5,7 @@ import java.util.UUID
 import core.Image
 import dao.ImageDAO
 import dao.converters.ImageDAOConverter
-import database.DB
+import database.Tables
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -22,7 +22,7 @@ trait ImageRepo {
 
 }
 
-trait DBImageRepo extends ImageRepo with DB {
+trait ImageRepoDB extends ImageRepo with Tables {
 
   import config.api._
 

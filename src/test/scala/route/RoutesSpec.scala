@@ -7,16 +7,17 @@ import akka.http.scaladsl.model.Multipart.FormData
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpCredentials}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, Multipart, StatusCodes}
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.directives.AuthenticationDirective
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import authentication.Authentication
-import core.User._
-import core.{Image, Role}
+import core.LoggedInUser._
+import core.{Image, LoggedInUser, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import dto.ImageDTO
 import dto.converters.ImageDTOConverter
 import io.circe.generic.auto._
+import org.h2.engine.User
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import service.ImageService
@@ -127,10 +128,10 @@ class RoutesSpec() extends AnyWordSpec with Matchers with ScalatestRouteTest {
   }
 
   class MockAuthenticate(credentials: Option[HttpCredentials]) extends Authentication {
-    override def authenticate: AuthenticationDirective[User] = {
+    override def authenticate: Directive1[LoggedInUser] = {
       credentials match {
-        case Some(_) => AuthenticationDirective(provide(RegisteredUser("user", "pass", Role.User)))
-        case None => AuthenticationDirective(provide(Guest))
+        case Some(_) => AuthenticationDirective(provide(LoggedInUser("user", "pass", Role.User)))
+        case None => AuthenticationDirective(provide(LoggedInUser.guest))
       }
     }
   }

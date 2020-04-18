@@ -5,7 +5,7 @@ import java.util.UUID
 
 import core.Image
 import dao.ImageDAO
-import database.H2DBMem
+import database.{H2DBMem, Tables}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
@@ -19,7 +19,7 @@ class ImageRepoSpec extends AnyWordSpec with Matchers with ScalaFutures with Bef
   val pigID: UUID = UUID.randomUUID()
 
   sealed trait ImageRepoContext {
-    val repo = new DBImageRepo with H2DBMem
+    val repo = new ImageRepoDB with H2DBMem
     val pigFile = new File("D:\\img", "pig.png")
     val cat: Image = Image(Some(catID), "cat.jpg", None, Some("D:\\img\\pet"), visibility = true)
     val dog: Image = Image(Some(dogID), "dog.jpg", None, Some("D:\\img\\pet"), visibility = false)
@@ -28,7 +28,7 @@ class ImageRepoSpec extends AnyWordSpec with Matchers with ScalaFutures with Bef
     val listImages: List[Image] = List(cat, dog)
   }
 
-  object DBContext extends H2DBMem {
+  object DBContext extends H2DBMem with Tables{
 
     import config.api._
 
