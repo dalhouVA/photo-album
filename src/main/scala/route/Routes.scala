@@ -7,17 +7,18 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive0, Route}
 import authentication.Authentication
 import core.Role._
-import core.{Image, Role, LoggedInUser}
+import core.{Image, LoggedInUser, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import dto.InImageDTO
 import dto.converters.ImageDTOConverter
 import io.circe.generic.auto._
 import service.ImageService
-import store.StoreImage
+import store.Store
 
 import scala.concurrent.ExecutionContext
 
 trait Routes {
-  def route(service: ImageService, auth: Authentication)(implicit exc: ExecutionContext): Route = pathPrefix("album") {
+  def route(service: ImageService, auth: Authentication, store: Store)(implicit exc: ExecutionContext): Route = pathPrefix("album") {
     auth.authenticate { user =>
       authorize(user, requiredLevel = Role.User) {
         get {
@@ -30,10 +31,11 @@ trait Routes {
             complete(service.getAllImg.map(_.map(ImageDTOConverter.fromImage)))
         } ~
           post {
-            (path("upload") & parameter(Symbol("visibility").as[Boolean])) { vis =>
-              storeUploadedFile("image", StoreImage.saveImage) {
-                case (metadata, file) =>
-                  complete(StatusCodes.Created, service.upload(Image(Some(UUID.randomUUID()), metadata.fileName, Some(file), Some(file.getAbsolutePath), vis)))
+            path("upload") {
+              entity(as[InImageDTO]) {
+                img =>
+                  val path = store.saveImage(img.base64Image).getAbsolutePath
+                  complete(StatusCodes.Created, service.upload(Image(Some(UUID.randomUUID()), img.name, Some(path), img.visibility,img.albums)))
               }
             }
           } ~

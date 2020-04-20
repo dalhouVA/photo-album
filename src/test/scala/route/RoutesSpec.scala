@@ -3,24 +3,22 @@ package route
 import java.io.File
 import java.util.UUID
 
-import akka.http.scaladsl.model.Multipart.FormData
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpCredentials}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, Multipart, StatusCodes}
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.directives.AuthenticationDirective
+import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import authentication.Authentication
-import core.LoggedInUser._
 import core.{Image, LoggedInUser, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import dto.ImageDTO
 import dto.converters.ImageDTOConverter
+import dto.{InImageDTO, OutImageDTO}
 import io.circe.generic.auto._
-import org.h2.engine.User
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import service.ImageService
+import store.Store
 
 import scala.concurrent.Future
 
@@ -31,56 +29,50 @@ class RoutesSpec() extends AnyWordSpec with Matchers with ScalatestRouteTest {
     val catID: UUID = UUID.randomUUID()
     val dogID: UUID = UUID.randomUUID()
     val pigID: UUID = UUID.randomUUID()
-    val catFile = new File("D:\\img\\pet", "cat.jpg")
-    val dogFile = new File("D:\\img\\pet", "dog.jpg")
-    val cat: Image = Image(Some(catID), "cat.jpg", Some(catFile), Some("D:\\img\\pet"), visibility = true)
-    val dog: Image = Image(Some(dogID), "dog.jpg", Some(dogFile), Some("D:\\img\\pet"), visibility = false)
+    val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true,Nil)
+    val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false,Nil)
+    val catDTO: InImageDTO = InImageDTO("cat", "asdqwr", visibility = true,Nil)
     val listImages: List[Image] = List(cat, dog)
-    val listImagesDTO: List[ImageDTO] = listImages.map(ImageDTOConverter.fromImage)
-    val listImagesDTOPublic: List[ImageDTO] = listImages.filter(_.visibility).map(ImageDTOConverter.fromImage)
+    val listImagesDTO: List[OutImageDTO] = listImages.map(ImageDTOConverter.fromImage)
+    val listImagesDTOPublic: List[OutImageDTO] = listImages.filter(_.visibility).map(ImageDTOConverter.fromImage)
     val validAuthenticate: BasicHttpCredentials = BasicHttpCredentials("jane", "123")
-    val imageRoute: Route = route(new MockImageService(listImages), new MockAuthenticate(Some(validAuthenticate)))
-    val guestImageRoute: Route = route(new MockImageService(listImages), new MockAuthenticate(None))
+    val imageRoute: Route = route(new MockImageService(listImages), new MockAuthenticate(Some(validAuthenticate)), new MockStore())
+    val guestImageRoute: Route = route(new MockImageService(listImages), new MockAuthenticate(None), new MockStore())
     val ok: StatusCodes.Success = StatusCodes.OK
     val created: StatusCodes.Success = StatusCodes.Created
     val bad: StatusCodes.ClientError = StatusCodes.BadRequest
     val unauthorized: StatusCodes.ClientError = StatusCodes.Unauthorized
-    val multipartForm: FormData.Strict =
-      Multipart.FormData(Multipart.FormData.BodyPart.Strict(
-        "image",
-        HttpEntity(ContentTypes.`text/plain(UTF-8)`, "2,3,5\n7,11,13,17,23\n29,31,37\n"),
-        Map("filename" -> "primes.jpeg")))
   }
 
   "The server" should {
     "return list of all images" in new RoutesSpecContext {
       Get("/album") ~> imageRoute ~> check {
         status shouldBe ok
-        responseAs[List[ImageDTO]] shouldBe listImagesDTO
+        responseAs[List[OutImageDTO]] shouldBe listImagesDTO
       }
     }
     "return list of images with visibility = true" in new RoutesSpecContext {
       Get("/album") ~> guestImageRoute ~> check {
         status shouldBe ok
-        responseAs[List[ImageDTO]] shouldBe listImagesDTOPublic
+        responseAs[List[OutImageDTO]] shouldBe listImagesDTOPublic
       }
     }
     "return image by id with valid credentials when visibility = false" in new RoutesSpecContext {
       Get(s"/album/$dogID") ~> imageRoute ~> check {
         status shouldBe ok
-        responseAs[Option[ImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(dog))
+        responseAs[Option[OutImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(dog))
       }
     }
     "return image by id with valid credentials when visibility = true" in new RoutesSpecContext {
       Get(s"/album/$catID") ~> imageRoute ~> check {
         status shouldBe ok
-        responseAs[Option[ImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(cat))
+        responseAs[Option[OutImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(cat))
       }
     }
     "return image by id without credentials when visibility = true" in new RoutesSpecContext {
       Get(s"/album/$catID") ~> guestImageRoute ~> check {
         status shouldBe ok
-        responseAs[Option[ImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(cat))
+        responseAs[Option[OutImageDTO]] shouldBe Some(ImageDTOConverter.fromImage(cat))
       }
     }
     "return unauthorized error" in new RoutesSpecContext {
@@ -107,7 +99,7 @@ class RoutesSpec() extends AnyWordSpec with Matchers with ScalatestRouteTest {
       }
     }
     "create new entity" in new RoutesSpecContext {
-      Post("/album/upload?visibility=true", multipartForm) ~> imageRoute ~> check {
+      Post("/album/upload", content = catDTO) ~> imageRoute ~> check {
         status shouldBe created
       }
     }
@@ -134,6 +126,10 @@ class RoutesSpec() extends AnyWordSpec with Matchers with ScalatestRouteTest {
         case None => AuthenticationDirective(provide(LoggedInUser.guest))
       }
     }
+  }
+
+  class MockStore() extends Store {
+    override def saveImage(base64String: String): File = new File("D:\\img\\empty.txt")
   }
 
 }

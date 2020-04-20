@@ -1,8 +1,8 @@
 package dto.converters
 
 import core.Image
-import dto.ImageDTO
+import dto.OutImageDTO
 
 object ImageDTOConverter {
-  def fromImage: Image => ImageDTO = img => ImageDTO(img.id, img.name, img.uri.get)
+  def fromImage: Image => OutImageDTO = img => OutImageDTO(img.id.get, img.name, img.uri.get, img.visibility,img.albums)
 }

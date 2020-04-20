@@ -2,8 +2,8 @@ package database
 
 import java.util.UUID
 
-import core.LoggedInUser
 import core.Role.{Guest, User, UserRole}
+import core.{Album, LoggedInUser}
 import dao.ImageDAO
 import slick.ast.BaseTypedType
 import slick.jdbc.JdbcType
@@ -22,7 +22,9 @@ trait Tables extends DB {
     }
   )
 
-  class Images(tag: Tag) extends Table[ImageDAO](tag, "IMAGES") {
+  case class Img(id:Option[UUID],name:String,uri:String,visibility:Boolean)
+
+  class Images(tag: Tag) extends Table[Img](tag, "IMAGES") {
     def id = column[UUID]("ID", O.PrimaryKey)
 
     def name = column[String]("NAME")
@@ -32,7 +34,7 @@ trait Tables extends DB {
     def visibility = column[Boolean]("VISIBILITY")
 
 
-    def * = (id.?, name, uri, visibility) <> ((ImageDAO.apply _).tupled, ImageDAO.unapply)
+    def * = (id.?, name, uri, visibility) <> ((Img.apply _).tupled, Img.unapply)
 
   }
 
@@ -50,15 +52,12 @@ trait Tables extends DB {
 
   val users = TableQuery[Users]
 
-
-  case class Album(id: UUID, name: String)
-
   class Albums(tag: Tag) extends Table[Album](tag, "ALBUMS") {
     def id = column[UUID]("ID", O.PrimaryKey)
 
     def name = column[String]("NAME")
 
-    def * = (id, name).mapTo[Album]
+    def * = (id.?, name) <> (Album.tupled, Album.unapply)
   }
 
   val albums = TableQuery[Albums]
@@ -72,7 +71,7 @@ trait Tables extends DB {
 
     def UX_imageID_albumID = index("UX_image-albums_imageID_albumID", (image_id, album_id), unique = true)
 
-    def FK_imageID = foreignKey("FK_image_albums_imageID", image_id, images)(_.id,onDelete = ForeignKeyAction.Cascade)
+    def FK_imageID = foreignKey("FK_image_albums_imageID", image_id, images)(_.id, onDelete = ForeignKeyAction.Cascade)
 
     def FK_albumID = foreignKey("FK_image_albums_albumID", album_id, albums)(_.id)
 

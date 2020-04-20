@@ -1,6 +1,5 @@
 package service
 
-import java.io.File
 import java.util.UUID
 
 import core.Image
@@ -17,10 +16,8 @@ class ImageServiceSpec extends AnyWordSpec with Matchers with ScalaFutures {
   sealed trait ImageServiceSpecContext {
     val catID: UUID = UUID.randomUUID()
     val dogID: UUID = UUID.randomUUID()
-    val catFile = new File("D:\\img\\pet", "cat.jpg")
-    val dogFile = new File("D:\\img\\pet", "dog.jpg")
-    val cat: Image = Image(Some(catID), "cat.jpg", Some(catFile), Some("D:\\img\\pet"), visibility = true)
-    val dog: Image = Image(Some(dogID), "dog.jpg", Some(dogFile), Some("D:\\img\\pet"), visibility = false)
+    val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true,Nil)
+    val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false,Nil)
     val listImages: List[Image] = List(cat, dog)
     val listImagesPublic: List[Image] = listImages.filter(_.visibility)
     val service = new DBImageService(new MockImageRepo(listImages))

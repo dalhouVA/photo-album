@@ -5,6 +5,7 @@ import database.H2DBFile
 import repository.{ImageRepo, ImageRepoDB, UserRepo, UserRepoDB}
 import route.Routes
 import service.DBImageService
+import store.ImageStore
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -14,6 +15,7 @@ object Main extends App with Routes {
 
   val repo: ImageRepo = new ImageRepoDB() with H2DBFile
   val userRepo: UserRepo = new UserRepoDB() with H2DBFile
+  val store = new ImageStore {}
 
-  Http().bindAndHandle(route(new DBImageService(repo), new Auth(userRepo)), "localhost", 9000)
+  Http().bindAndHandle(route(new DBImageService(repo), new Auth(userRepo), store), "localhost", 9000)
 }

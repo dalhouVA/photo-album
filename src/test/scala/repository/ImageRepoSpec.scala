@@ -1,6 +1,5 @@
 package repository
 
-import java.io.File
 import java.util.UUID
 
 import core.Image
@@ -20,23 +19,21 @@ class ImageRepoSpec extends AnyWordSpec with Matchers with ScalaFutures with Bef
 
   sealed trait ImageRepoContext {
     val repo = new ImageRepoDB with H2DBMem
-    val pigFile = new File("D:\\img", "pig.png")
-    val cat: Image = Image(Some(catID), "cat.jpg", None, Some("D:\\img\\pet"), visibility = true)
-    val dog: Image = Image(Some(dogID), "dog.jpg", None, Some("D:\\img\\pet"), visibility = false)
-    val pig: Image = Image(Some(pigID), "pig.png", Some(pigFile), Some("D:\\img"), visibility = false)
-    val pigFromDB: Image = pig.copy(file = None)
+    val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true,Nil)
+    val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false,Nil)
+    val pig: Image = Image(Some(pigID), "pig.png", Some("D:\\img"), visibility = false,Nil)
     val listImages: List[Image] = List(cat, dog)
   }
 
-  object DBContext extends H2DBMem with Tables{
+  object DBContext extends H2DBMem with Tables {
 
     import config.api._
 
     def initDB: Future[Unit] = db.run(
       DBIO.seq(
         images.schema.create,
-        images += ImageDAO(Some(catID), "cat.jpg", "D:\\img\\pet", visibility = true),
-        images += ImageDAO(Some(dogID), "dog.jpg", "D:\\img\\pet", visibility = false)
+        images += Img(Some(catID), "cat.jpg", "D:\\img\\pet", visibility = true),
+        images += Img(Some(dogID), "dog.jpg", "D:\\img\\pet", visibility = false)
       )
     )
 
@@ -57,7 +54,7 @@ class ImageRepoSpec extends AnyWordSpec with Matchers with ScalaFutures with Bef
     }
     "create new entity in database" in new ImageRepoContext {
       repo.create(pig).futureValue
-      repo.getAll.futureValue shouldBe List(cat, dog, pigFromDB)
+      repo.getAll.futureValue shouldBe List(cat, dog, pig)
     }
     "get entity by id" in new ImageRepoContext {
       repo.getByID(catID).futureValue shouldBe Some(cat)
