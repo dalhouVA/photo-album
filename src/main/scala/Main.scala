@@ -17,5 +17,5 @@ object Main extends App with Routes {
   val userRepo: UserRepo = new UserRepoDB() with H2DBFile
   val store = new ImageStore {}
 
-  Http().bindAndHandle(route(new DBImageService(repo), new Auth(userRepo), store), "localhost", 9000)
+  Http().bindAndHandle(routes(new DBImageService(repo), new Auth(userRepo), store), "localhost", 9000)
 }

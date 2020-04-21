@@ -2,7 +2,7 @@ package service
 
 import java.util.UUID
 
-import core.Image
+import core.{Album, Image}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -16,8 +16,8 @@ class ImageServiceSpec extends AnyWordSpec with Matchers with ScalaFutures {
   sealed trait ImageServiceSpecContext {
     val catID: UUID = UUID.randomUUID()
     val dogID: UUID = UUID.randomUUID()
-    val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true,Nil)
-    val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false,Nil)
+    val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
+    val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
     val listImages: List[Image] = List(cat, dog)
     val listImagesPublic: List[Image] = listImages.filter(_.visibility)
     val service = new DBImageService(new MockImageRepo(listImages))
@@ -61,13 +61,28 @@ class ImageServiceSpec extends AnyWordSpec with Matchers with ScalaFutures {
   }
 
   class MockImageRepo(images: List[Image]) extends ImageRepo {
-    override def create(img: Image): Future[Unit] = Future.unit
 
-    override def getAll: Future[List[Image]] = Future.successful(images)
+    override def createImage(img: Image): Future[Unit] = Future.unit
+
+    override def getAllImages: Future[List[Image]] = Future.successful(images)
 
     override def delete(id: UUID): Future[Unit] = Future.unit
 
-    override def getByID(id: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(id)))
+    override def getImageByID(image_id: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(image_id)))
+
+    override def getAllAlbums: Future[List[Album]] = Future.successful(Nil)
+
+    override def getAlbumById(album_id: UUID): Future[Option[Album]] = ???
+
+    override def createAlbum(album: Album): Future[Unit] = Future.unit
+
+    override def putImageIntoAlbum(image_id: UUID, album_id: UUID): Future[Unit] = Future.unit
+
+    override def createImageFromAlbum(image: Image, album_id: UUID): Future[Unit] = Future.unit
+
+    override def deleteAlbum(id: UUID): Future[Unit] = Future.unit
+
+    override def getImagesByAlbumID(album_id: UUID): Future[List[Image]] = ???
   }
 
 }

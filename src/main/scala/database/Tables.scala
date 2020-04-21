@@ -22,9 +22,8 @@ trait Tables extends DB {
     }
   )
 
-  case class Img(id:Option[UUID],name:String,uri:String,visibility:Boolean)
 
-  class Images(tag: Tag) extends Table[Img](tag, "IMAGES") {
+  class Images(tag: Tag) extends Table[ImageDAO](tag, "IMAGES") {
     def id = column[UUID]("ID", O.PrimaryKey)
 
     def name = column[String]("NAME")
@@ -34,7 +33,7 @@ trait Tables extends DB {
     def visibility = column[Boolean]("VISIBILITY")
 
 
-    def * = (id.?, name, uri, visibility) <> ((Img.apply _).tupled, Img.unapply)
+    def * = (id.?, name, uri, visibility) <> ((ImageDAO.apply _).tupled, ImageDAO.unapply)
 
   }
 
@@ -73,7 +72,7 @@ trait Tables extends DB {
 
     def FK_imageID = foreignKey("FK_image_albums_imageID", image_id, images)(_.id, onDelete = ForeignKeyAction.Cascade)
 
-    def FK_albumID = foreignKey("FK_image_albums_albumID", album_id, albums)(_.id)
+    def FK_albumID = foreignKey("FK_image_albums_albumID", album_id, albums)(_.id, onDelete = ForeignKeyAction.SetNull)
 
     def * = (image_id, album_id).mapTo[ImageAlbum]
 

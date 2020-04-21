@@ -19,9 +19,9 @@ class ImageRepoSpec extends AnyWordSpec with Matchers with ScalaFutures with Bef
 
   sealed trait ImageRepoContext {
     val repo = new ImageRepoDB with H2DBMem
-    val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true,Nil)
-    val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false,Nil)
-    val pig: Image = Image(Some(pigID), "pig.png", Some("D:\\img"), visibility = false,Nil)
+    val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
+    val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
+    val pig: Image = Image(Some(pigID), "pig.png", Some("D:\\img"), visibility = false)
     val listImages: List[Image] = List(cat, dog)
   }
 
@@ -32,8 +32,8 @@ class ImageRepoSpec extends AnyWordSpec with Matchers with ScalaFutures with Bef
     def initDB: Future[Unit] = db.run(
       DBIO.seq(
         images.schema.create,
-        images += Img(Some(catID), "cat.jpg", "D:\\img\\pet", visibility = true),
-        images += Img(Some(dogID), "dog.jpg", "D:\\img\\pet", visibility = false)
+        images += ImageDAO(Some(catID), "cat.jpg", "D:\\img\\pet", visibility = true),
+        images += ImageDAO(Some(dogID), "dog.jpg", "D:\\img\\pet", visibility = false)
       )
     )
 
@@ -50,20 +50,20 @@ class ImageRepoSpec extends AnyWordSpec with Matchers with ScalaFutures with Bef
 
   "Repository" should {
     "return all entities" in new ImageRepoContext {
-      repo.getAll.futureValue shouldBe listImages
+      repo.getAllImages.futureValue shouldBe listImages
     }
     "create new entity in database" in new ImageRepoContext {
-      repo.create(pig).futureValue
-      repo.getAll.futureValue shouldBe List(cat, dog, pig)
+      repo.createImage(pig).futureValue
+      repo.getAllImages.futureValue shouldBe List(cat, dog, pig)
     }
     "get entity by id" in new ImageRepoContext {
-      repo.getByID(catID).futureValue shouldBe Some(cat)
-      repo.getByID(dogID).futureValue shouldBe Some(dog)
-      repo.getByID(pigID).futureValue shouldBe None
+      repo.getImageByID(catID).futureValue shouldBe Some(cat)
+      repo.getImageByID(dogID).futureValue shouldBe Some(dog)
+      repo.getImageByID(pigID).futureValue shouldBe None
     }
     "delete entity" in new ImageRepoContext {
       repo.delete(catID).futureValue
-      repo.getAll.futureValue shouldBe List(dog)
+      repo.getAllImages.futureValue shouldBe List(dog)
     }
   }
 }
