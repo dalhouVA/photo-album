@@ -13,9 +13,10 @@ import scala.concurrent.Future
 
 class ImageServiceSpec extends AnyWordSpec with Matchers with ScalaFutures {
 
+  val catID: UUID = UUID.randomUUID()
+  val dogID: UUID = UUID.randomUUID()
+
   sealed trait ImageServiceSpecContext {
-    val catID: UUID = UUID.randomUUID()
-    val dogID: UUID = UUID.randomUUID()
     val cat: Image = Image(Some(catID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val dog: Image = Image(Some(dogID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
     val listImages: List[Image] = List(cat, dog)
@@ -25,35 +26,27 @@ class ImageServiceSpec extends AnyWordSpec with Matchers with ScalaFutures {
 
   "Service" should {
     "upload image without error" in new ImageServiceSpecContext {
-      service.upload(cat) shouldBe Future.unit
-      service.upload(dog) shouldBe Future.unit
+      service.upload(cat).futureValue shouldBe catID
     }
+
     "return all images" in new ImageServiceSpecContext {
-      whenReady(service.getAllImg) { result =>
-        result shouldBe listImages
-      }
+      service.getAllImg.futureValue shouldBe listImages
     }
+
     "return images with visibility = true" in new ImageServiceSpecContext {
-      whenReady(service.getPublicImages) { result =>
-        result shouldBe listImagesPublic
-      }
+      service.getPublicImages.futureValue shouldBe listImagesPublic
     }
+
     "return image by id" in new ImageServiceSpecContext {
-      whenReady(service.getImgById(catID)) { result =>
-        result shouldBe Some(cat)
-      }
-      whenReady(service.getImgById(dogID)) { result =>
-        result shouldBe Some(dog)
-      }
+      service.getImgById(catID).futureValue shouldBe Some(cat)
+      service.getImgById(dogID).futureValue shouldBe Some(dog)
     }
+
     "return only image with visibility = true" in new ImageServiceSpecContext {
-      whenReady(service.getPublicImageById(catID)) { result =>
-        result shouldBe Some(cat)
-      }
-      whenReady(service.getPublicImageById(dogID)) { result =>
-        result shouldBe None
-      }
+      service.getPublicImageById(catID).futureValue shouldBe Some(cat)
+      service.getPublicImageById(dogID).futureValue shouldBe None
     }
+
     "delete image without error" in new ImageServiceSpecContext {
       service.delete(catID) shouldBe Future.unit
       service.delete(dogID) shouldBe Future.unit
@@ -62,7 +55,7 @@ class ImageServiceSpec extends AnyWordSpec with Matchers with ScalaFutures {
 
   class MockImageRepo(images: List[Image]) extends ImageRepo {
 
-    override def createImage(img: Image): Future[Unit] = Future.unit
+    override def createImage(img: Image): Future[UUID] = Future.successful(catID)
 
     override def getAllImages: Future[List[Image]] = Future.successful(images)
 
@@ -74,15 +67,17 @@ class ImageServiceSpec extends AnyWordSpec with Matchers with ScalaFutures {
 
     override def getAlbumById(album_id: UUID): Future[Option[Album]] = ???
 
-    override def createAlbum(album: Album): Future[Unit] = Future.unit
+    override def createAlbum(album: Album): Future[UUID] = ???
 
     override def putImageIntoAlbum(image_id: UUID, album_id: UUID): Future[Unit] = Future.unit
 
-    override def createImageFromAlbum(image: Image, album_id: UUID): Future[Unit] = Future.unit
+    override def createImageFromAlbum(image: Image, album_id: UUID): Future[UUID] = ???
 
     override def deleteAlbum(id: UUID): Future[Unit] = Future.unit
 
     override def getImagesByAlbumID(album_id: UUID): Future[List[Image]] = ???
+
+    override def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit] = ???
   }
 
 }

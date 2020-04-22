@@ -8,8 +8,7 @@ import repository.ImageRepo
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ImageService {
-
-  def upload(img: Image): Future[Unit]
+  def upload(img: Image): Future[UUID]
 
   def getImgById(image_id: UUID): Future[Option[Image]]
 
@@ -21,23 +20,25 @@ trait ImageService {
 
   def getPublicImageById(id: UUID): Future[Option[Image]]
 
-  def getAllAlbums:Future[List[Album]]
+  def getAllAlbums: Future[List[Album]]
 
-  def getAlbumById(album_id:UUID):Future[Option[Album]]
+  def getAlbumById(album_id: UUID): Future[Option[Album]]
 
-  def createAlbum(album: Album):Future[Unit]
+  def createAlbum(album: Album): Future[UUID]
 
-  def putImageIntoAlbum(image_id: UUID, album_id: UUID):Future[Unit]
+  def putImageIntoAlbum(image_id: UUID, album_id: UUID): Future[Unit]
 
-  def createImageFromAlbum(image: Image,album_id:UUID):Future[Unit]
+  def createImageFromAlbum(image: Image, album_id: UUID): Future[UUID]
 
   def deleteAlbum(uuid: UUID): Future[Unit]
 
   def getImagesByAlbumId(album_id: UUID): Future[List[Image]]
+
+  def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit]
 }
 
 class DBImageService(repo: ImageRepo)(implicit ex: ExecutionContext) extends ImageService {
-  override def upload(img: Image): Future[Unit] = repo.createImage(img)
+  override def upload(img: Image): Future[UUID] = repo.createImage(img)
 
   override def getImgById(image_id: UUID): Future[Option[Image]] = repo.getImageByID(image_id)
 
@@ -51,15 +52,17 @@ class DBImageService(repo: ImageRepo)(implicit ex: ExecutionContext) extends Ima
 
   override def getAllAlbums: Future[List[Album]] = repo.getAllAlbums
 
-  override def getAlbumById(album_id:UUID): Future[Option[Album]] = repo.getAlbumById(album_id)
+  override def getAlbumById(album_id: UUID): Future[Option[Album]] = repo.getAlbumById(album_id)
 
-  override def createAlbum(album: Album): Future[Unit] = repo.createAlbum(album)
+  override def createAlbum(album: Album): Future[UUID] = repo.createAlbum(album)
 
-  override def putImageIntoAlbum(image_id: UUID, album_id: UUID): Future[Unit] = repo.putImageIntoAlbum(image_id,album_id)
+  override def putImageIntoAlbum(image_id: UUID, album_id: UUID): Future[Unit] = repo.putImageIntoAlbum(image_id, album_id)
 
-  override def createImageFromAlbum(image: Image, album_id: UUID): Future[Unit] = repo.createImageFromAlbum(image,album_id)
+  override def createImageFromAlbum(image: Image, album_id: UUID): Future[UUID] = repo.createImageFromAlbum(image, album_id)
 
   override def deleteAlbum(id: UUID): Future[Unit] = repo.deleteAlbum(id)
 
   override def getImagesByAlbumId(album_id: UUID): Future[List[Image]] = repo.getImagesByAlbumID(album_id)
+
+  override def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit] = repo.deleteImageFromAlbum(image_id, album_id)
 }

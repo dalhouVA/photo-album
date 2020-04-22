@@ -1,7 +1,5 @@
 package dto.converters
 
-import java.util.UUID
-
 import core.Image
 import dto.OutImageDTO
 
