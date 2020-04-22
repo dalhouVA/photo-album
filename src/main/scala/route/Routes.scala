@@ -127,7 +127,6 @@ trait Routes {
     onSuccess(for {
       id <- fid
       alb <- service.getAlbumById(id)
-      val s = alb
     } yield alb match {
       case Some(album) => complete(successCode, album)
       case None => complete(StatusCodes.BadRequest, "Album with this id not found")
