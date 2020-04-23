@@ -72,7 +72,7 @@ trait Tables extends DB {
 
     def FK_imageID = foreignKey("FK_image_albums_imageID", image_id, images)(_.id, onDelete = ForeignKeyAction.Cascade)
 
-    def FK_albumID = foreignKey("FK_image_albums_albumID", album_id, albums)(_.id, onDelete = ForeignKeyAction.SetNull)
+    def FK_albumID = foreignKey("FK_image_albums_albumID", album_id, albums)(_.id, onDelete = ForeignKeyAction.Cascade)
 
     def * = (image_id, album_id).mapTo[ImageAlbum]
 

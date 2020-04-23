@@ -36,18 +36,16 @@ trait ImageRepo {
   def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit]
 }
 
-abstract class ImageRepoDB(idGenerator: Generator) extends ImageRepo with Tables {
+abstract class ImageRepoDB(generator: Generator) extends ImageRepo with Tables {
 
   import config.api._
-
-  db.run(DBIO.seq((images.schema ++ albums.schema ++ users.schema ++ imageAlbums.schema).create))
 
   private def deleteImage(img: Image) = images.filter(_.id === img.id).delete
 
   private def deleteAlbum(album: Album) = albums.filter(_.id === album.id).delete
 
   override def createImage(img: Image): Future[UUID] = {
-    val img_id = idGenerator.id
+    val img_id = generator.id
     db.run(DBIO.seq(images += ImageDAOConverter.fromImage(img).copy(id = Some(img_id)))).map(_ => img_id)
   }
 
@@ -64,14 +62,14 @@ abstract class ImageRepoDB(idGenerator: Generator) extends ImageRepo with Tables
   override def getAlbumById(album_id: UUID): Future[Option[Album]] = db.run(albums.filter(_.id === album_id).result).map(_.headOption)
 
   override def createAlbum(album: Album): Future[UUID] = {
-    val album_id = idGenerator.id
+    val album_id = generator.id
     db.run(DBIO.seq(albums += album.copy(id = Some(album_id)))).map(_ => album_id)
   }
 
   override def putImageIntoAlbum(image_id: UUID, album_id: UUID): Future[Unit] = db.run(DBIO.seq(imageAlbums += ImageAlbum(image_id, album_id)))
 
   override def createImageFromAlbum(image: Image, album_id: UUID): Future[UUID] = {
-    val img_id = idGenerator.id
+    val img_id = generator.id
     db.run(DBIO.seq(
       images += ImageDAOConverter.fromImage(image).copy(id = Some(img_id)),
       imageAlbums += ImageAlbum(image.id.get, album_id)
