@@ -1,7 +1,7 @@
 package repository
 
 import core.LoggedInUser
-import database.Tables
+import database.{DB, Tables}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -12,7 +12,7 @@ trait UserRepo {
 
 }
 
-trait UserRepoDB extends UserRepo with Tables {
+trait UserRepoDB extends UserRepo with Tables with DB {
 
   import config.api._
 

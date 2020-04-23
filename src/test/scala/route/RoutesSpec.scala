@@ -17,7 +17,6 @@ import io.circe.generic.auto._
 import org.scalatest.freespec.AnyFreeSpecLike
 import org.scalatest.matchers.should.Matchers
 import service.ImageService
-import store.Store
 
 import scala.concurrent.Future
 
@@ -41,8 +40,8 @@ class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest
     val nonExistentAlbum: Album = Album(Some(nonExistentAlbumID), "Waters")
     val listAlbums = List(album)
     val validAuthenticate: BasicHttpCredentials = BasicHttpCredentials("jane", "123")
-    val route: Route = routes(new MockImageService(listImages, listAlbums), new MockAuthenticate(Some(validAuthenticate)), new MockStore())
-    val guestRoute: Route = routes(new MockImageService(listImages, listAlbums), new MockAuthenticate(None), new MockStore())
+    val route: Route = routes(new MockImageService(listImages, listAlbums), new MockAuthenticate(Some(validAuthenticate)))
+    val guestRoute: Route = routes(new MockImageService(listImages, listAlbums), new MockAuthenticate(None))
     val ok: StatusCodes.Success = StatusCodes.OK
     val created: StatusCodes.Success = StatusCodes.Created
     val bad: StatusCodes.ClientError = StatusCodes.BadRequest
@@ -51,72 +50,75 @@ class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest
 
   "Routes" - {
     "ImageRoutes should" - {
-      "return list of all images" in new RoutesSpecContext {
-        Get("/images") ~> route ~> check {
-          status shouldBe ok
-          responseAs[List[OutImageDTO]] shouldBe listImagesDTO
+      "Authorized user" - {
+        "return list of all images" in new RoutesSpecContext {
+          Get("/images") ~> route ~> check {
+            status shouldBe ok
+            responseAs[List[OutImageDTO]] shouldBe listImagesDTO
+          }
+        }
+
+        "return private image by id with authorized access" in new RoutesSpecContext {
+          Get(s"/images/$privateImageID") ~> route ~> check {
+            status shouldBe ok
+            responseAs[Option[OutImageDTO]] shouldBe Some(privateOutImage)
+          }
+        }
+
+        "return public image by id with authorized access" in new RoutesSpecContext {
+          Get(s"/images/$publicImageID") ~> route ~> check {
+            status shouldBe ok
+            responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
+          }
+        }
+
+        "return bad request error" in new RoutesSpecContext {
+          Get(s"/images/$nonExistentImageID") ~> route ~> check {
+            status shouldBe bad
+            responseAs[String] shouldBe "Image with this id not found"
+          }
+        }
+
+        "create new image" in new RoutesSpecContext {
+          Post("/images/upload", content = inImage) ~> route ~> check {
+            status shouldBe created
+            responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
+          }
+        }
+
+        "delete image by id" in new RoutesSpecContext {
+          Delete(s"/images/$publicImageID") ~> route ~> check {
+            status shouldBe ok
+          }
         }
       }
-
-      "return list of public images" in new RoutesSpecContext {
-        Get("/images") ~> guestRoute ~> check {
-          status shouldBe ok
-          responseAs[List[OutImageDTO]] shouldBe listImagesDTOPublic
+      "Guest" - {
+        "return list of public images" in new RoutesSpecContext {
+          Get("/images") ~> guestRoute ~> check {
+            status shouldBe ok
+            responseAs[List[OutImageDTO]] shouldBe listImagesDTOPublic
+          }
         }
-      }
 
-      "return private image by id with authorized access" in new RoutesSpecContext {
-        Get(s"/images/$privateImageID") ~> route ~> check {
-          status shouldBe ok
-          responseAs[Option[OutImageDTO]] shouldBe Some(privateOutImage)
+        "return public image by id with guest access" in new RoutesSpecContext {
+          Get(s"/images/$publicImageID") ~> guestRoute ~> check {
+            status shouldBe ok
+            responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
+          }
         }
-      }
 
-      "return public image by id with authorized access" in new RoutesSpecContext {
-        Get(s"/images/$publicImageID") ~> route ~> check {
-          status shouldBe ok
-          responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
+        "return unauthorized error with guest access to private image" in new RoutesSpecContext {
+          Get(s"/images/$privateImageID") ~> guestRoute ~> check {
+            status shouldBe unauthorized
+            responseAs[String] shouldBe "You have to authorize for get access"
+          }
         }
-      }
 
-      "return public image by id with guest access" in new RoutesSpecContext {
-        Get(s"/images/$publicImageID") ~> guestRoute ~> check {
-          status shouldBe ok
-          responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
-        }
-      }
-
-      "return unauthorized error with guest access to private image" in new RoutesSpecContext {
-        Get(s"/images/$privateImageID") ~> guestRoute ~> check {
-          status shouldBe unauthorized
-          responseAs[String] shouldBe "You have to authorize for get access"
-        }
-      }
-
-      "return unauthorized error when pass invalid id" in new RoutesSpecContext {
-        Get(s"/images/$nonExistentImageID") ~> guestRoute ~> check {
-          status shouldBe unauthorized
-          responseAs[String] shouldBe "You have to authorize for get access"
-        }
-      }
-
-      "return bad request error" in new RoutesSpecContext {
-        Get(s"/images/$nonExistentImageID") ~> route ~> check {
-          status shouldBe bad
-          responseAs[String] shouldBe "Image with this id not found"
-        }
-      }
-
-      "delete image by id" in new RoutesSpecContext {
-        Delete(s"/images/$publicImageID") ~> route ~> check {
-          status shouldBe ok
-        }
-      }
-
-      "create new image" in new RoutesSpecContext {
-        Post("/images/upload", content = inImage) ~> route ~> check {
-          status shouldBe created
-          responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
+        "return unauthorized error when pass invalid id" in new RoutesSpecContext {
+          Get(s"/images/$nonExistentImageID") ~> guestRoute ~> check {
+            status shouldBe unauthorized
+            responseAs[String] shouldBe "You have to authorize for get access"
+          }
         }
       }
     }
@@ -211,6 +213,8 @@ class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest
     override def getImagesByAlbumId(album_id: UUID): Future[List[Image]] = Future.successful(images)
 
     override def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit] = Future.unit
+
+    override def saveImage(base64String: String): Option[File] = Some(new File("D:\\img\\empty.txt"))
   }
 
   class MockAuthenticate(credentials: Option[HttpCredentials]) extends Authentication {
@@ -220,10 +224,6 @@ class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest
         case None => AuthenticationDirective(provide(LoggedInUser.guest))
       }
     }
-  }
-
-  class MockStore() extends Store {
-    override def saveImage(base64String: String): File = new File("D:\\img\\empty.txt")
   }
 
 }

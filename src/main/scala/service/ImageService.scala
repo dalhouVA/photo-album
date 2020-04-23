@@ -1,9 +1,11 @@
 package service
 
+import java.io.File
 import java.util.UUID
 
 import core.{Album, Image}
 import repository.ImageRepo
+import store.{ImageStore, Store}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,9 +37,11 @@ trait ImageService {
   def getImagesByAlbumId(album_id: UUID): Future[List[Image]]
 
   def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit]
+
+  def saveImage(base64String: String): Option[File]
 }
 
-class DBImageService(repo: ImageRepo)(implicit ex: ExecutionContext) extends ImageService {
+class DBImageService(repo: ImageRepo, store: Store)(implicit ex: ExecutionContext) extends ImageService {
   override def upload(img: Image): Future[UUID] = repo.createImage(img)
 
   override def getImgById(image_id: UUID): Future[Option[Image]] = repo.getImageByID(image_id)
@@ -65,4 +69,6 @@ class DBImageService(repo: ImageRepo)(implicit ex: ExecutionContext) extends Ima
   override def getImagesByAlbumId(album_id: UUID): Future[List[Image]] = repo.getImagesByAlbumID(album_id)
 
   override def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit] = repo.deleteImageFromAlbum(image_id, album_id)
+
+  override def saveImage(base64String: String): Option[File] = store.saveImage(base64String)
 }

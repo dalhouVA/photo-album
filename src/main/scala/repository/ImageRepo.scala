@@ -4,7 +4,7 @@ import java.util.UUID
 
 import core.{Album, Image}
 import dao.converters.ImageDAOConverter
-import database.Tables
+import database.{DB, Tables}
 import generator.Generator
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -36,7 +36,7 @@ trait ImageRepo {
   def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit]
 }
 
-abstract class ImageRepoDB(generator: Generator) extends ImageRepo with Tables {
+abstract class ImageRepoDB(generator: Generator) extends ImageRepo with Tables with DB {
 
   import config.api._
 

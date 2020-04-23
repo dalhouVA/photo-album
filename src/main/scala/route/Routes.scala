@@ -18,7 +18,7 @@ import store.Store
 import scala.concurrent.{ExecutionContext, Future}
 
 trait Routes {
-  private def imagesRoute(service: ImageService, auth: Authentication, store: Store)(implicit exc: ExecutionContext): Route = pathPrefix("images") {
+  private def imagesRoute(service: ImageService, auth: Authentication)(implicit exc: ExecutionContext): Route = pathPrefix("images") {
     auth.authenticate { user =>
       authorize(user, requiredLevel = Role.User) {
         get {
@@ -31,9 +31,12 @@ trait Routes {
             path("upload") {
               entity(as[InImageDTO]) {
                 img =>
-                  val path = store.saveImage(img.base64Image).getAbsolutePath
-                  val img_id = service.upload(Image(None, img.name, Some(path), img.visibility))
-                  getImageHandler(img_id, service, StatusCodes.Created)
+                  service.saveImage(img.base64Image) match {
+                    case Some(file) =>
+                      val img_id = service.upload(Image(None, img.name, Some(file.getAbsolutePath), img.visibility))
+                      getImageHandler(img_id, service, StatusCodes.Created)
+                    case None => complete(StatusCodes.BadRequest, "It's not an image")
+                  }
               }
             }
           } ~
@@ -57,7 +60,7 @@ trait Routes {
     }
   }
 
-  private def albumRoute(service: ImageService, auth: Authentication, store: Store)(implicit exc: ExecutionContext): Route = pathPrefix("albums") {
+  private def albumRoute(service: ImageService, auth: Authentication)(implicit exc: ExecutionContext): Route = pathPrefix("albums") {
     auth.authenticate { user =>
       authorize(user, requiredLevel = Role.User) {
         get {
@@ -81,9 +84,12 @@ trait Routes {
                 pathPrefix("images") {
                   path("upload") {
                     entity(as[InImageDTO]) { img =>
-                      val path = store.saveImage(img.base64Image).getAbsolutePath
-                      val img_id = service.createImageFromAlbum(Image(None, img.name, Some(path), img.visibility), UUID.fromString(album_id))
-                      getImageHandler(img_id, service, StatusCodes.Created)
+                      service.saveImage(img.base64Image) match {
+                        case Some(file) =>
+                          val img_id = service.createImageFromAlbum(Image(None, img.name, Some(file.getAbsolutePath), img.visibility), UUID.fromString(album_id))
+                          getImageHandler(img_id, service, StatusCodes.Created)
+                        case None => complete(StatusCodes.BadRequest, "It's not an image")
+                      }
                     }
                   }
                 }
@@ -132,8 +138,8 @@ trait Routes {
       case None => complete(StatusCodes.BadRequest, "Album with this id not found")
     }) { result => result }
 
-  def routes(service: ImageService, auth: Authentication, store: Store)(implicit exc: ExecutionContext): Route =
-    imagesRoute(service, auth, store) ~ albumRoute(service, auth, store)
+  def routes(service: ImageService, auth: Authentication)(implicit exc: ExecutionContext): Route =
+    imagesRoute(service, auth) ~ albumRoute(service, auth)
 
   private def authorize(user: LoggedInUser, requiredLevel: UserRole): Directive0 =
     if (user.role == requiredLevel)

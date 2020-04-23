@@ -8,7 +8,9 @@ import dao.ImageDAO
 import slick.ast.BaseTypedType
 import slick.jdbc.JdbcType
 
-trait Tables extends DB {
+trait Tables {
+
+  this:DB =>
 
   import config.api._
 

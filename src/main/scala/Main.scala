@@ -17,7 +17,8 @@ object Main extends App with Routes {
   val generator = new UUIDGenerator
   val repo: ImageRepo = new ImageRepoDB(generator) with H2DBFile
   val userRepo: UserRepo = new UserRepoDB() with H2DBFile
-  val store = new ImageStore {}
+  val store = new ImageStore(generator)
 
-  Http().bindAndHandle(routes(new DBImageService(repo), new Auth(userRepo), store), "localhost", 9000)
+  Http().bindAndHandle(routes(new DBImageService(repo, store), new Auth(userRepo)), "localhost", 9000)
+
 }
