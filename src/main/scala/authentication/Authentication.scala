@@ -3,7 +3,7 @@ package authentication
 import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.Credentials
-import core.LoggedInUser
+import components.LoggedInUser
 import repository.UserRepo
 
 import scala.concurrent.ExecutionContext.Implicits.global

@@ -1,6 +1,6 @@
 package dto.converters
 
-import core.Image
+import components.Image
 import dto.OutImageDTO
 
 object ImageDTOConverter {

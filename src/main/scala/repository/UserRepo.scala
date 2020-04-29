@@ -1,6 +1,6 @@
 package repository
 
-import core.LoggedInUser
+import components.LoggedInUser
 import database.{DB, Tables}
 
 import scala.concurrent.ExecutionContext.Implicits.global

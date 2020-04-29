@@ -1,6 +1,6 @@
-package core
+package components
 
-import core.Role._
+import components.Role._
 
 case class LoggedInUser(login: String = "",
                         pass: String = "",

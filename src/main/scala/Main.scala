@@ -1,12 +1,13 @@
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import authentication.Auth
+import authentication.{Auth, Authentication}
 import database.H2DBFile
 import generator.UUIDGenerator
-import repository.{ImageRepo, ImageRepoDB, UserRepo, UserRepoDB}
+import repository._
 import route.Routes
-import service.DBImageService
-import store.ImageStore
+import services.album.{AlbumService, DBAlbumService}
+import services.image.{DBImageService, ImageService}
+import services.{DBAlbumService, DBImageService}
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -15,10 +16,14 @@ object Main extends App with Routes {
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 
   val generator = new UUIDGenerator
-  val repo: ImageRepo = new ImageRepoDB(generator) with H2DBFile
+  val imageRepo: ImageRepo = new ImageRepoDB(generator) with H2DBFile
+  val albumRepo:AlbumRepo = new AlbumRepoDB(generator) with H2DBFile
   val userRepo: UserRepo = new UserRepoDB() with H2DBFile
-  val store = new ImageStore(generator)
+  val store = new ImageLocalRepo(generator)
 
-  Http().bindAndHandle(routes(new DBImageService(repo, store), new Auth(userRepo)), "localhost", 9000)
+  override val imageService: ImageService = new DBImageService(imageRepo, store)
+  override val albumService: AlbumService = new DBAlbumService(albumRepo)
+  override val auth: Authentication = new Auth(userRepo)
 
+  Http().bindAndHandle(routes, "localhost", 9000)
 }

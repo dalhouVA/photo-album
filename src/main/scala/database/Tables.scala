@@ -2,8 +2,8 @@ package database
 
 import java.util.UUID
 
-import core.Role.{Guest, User, UserRole}
-import core.{Album, LoggedInUser}
+import components.{Album, LoggedInUser}
+import components.Role.{Guest, User, UserRole}
 import dao.ImageDAO
 import slick.ast.BaseTypedType
 import slick.jdbc.JdbcType

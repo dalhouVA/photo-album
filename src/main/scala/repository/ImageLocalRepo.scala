@@ -1,4 +1,4 @@
-package store
+package repository
 
 import java.io.{ByteArrayInputStream, File}
 import java.util.Base64
@@ -8,12 +8,12 @@ import javax.imageio.ImageIO
 
 import scala.util.{Failure, Success, Try}
 
-trait Store {
-  def saveImage(base64String: String): Option[File]
+trait LocalRepo {
+  def upload(base64String: String): Option[File]
 }
 
-class ImageStore(generator: Generator) extends Store {
-  def saveImage(base64String: String): Option[File] = {
+class ImageLocalRepo(generator: Generator) extends LocalRepo {
+  def upload(base64String: String): Option[File] = {
     Try {
     val base64 = base64String.split(",")
     val (data, img_string) = (base64.head, base64.last)

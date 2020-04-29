@@ -1,6 +1,6 @@
 package dao.converters
 
-import core.Image
+import components.Image
 import dao.ImageDAO
 
 object ImageDAOConverter {

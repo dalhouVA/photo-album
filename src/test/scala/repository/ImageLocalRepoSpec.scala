@@ -1,4 +1,4 @@
-package store
+package repository
 
 import java.io.File
 import java.util.UUID
@@ -9,24 +9,24 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.io.Source
 
-class ImageStoreSpec extends AnyFreeSpecLike with Matchers {
+class ImageLocalRepoSpec extends AnyFreeSpecLike with Matchers {
 
-  sealed trait ImageStoreContext {
+  sealed trait ImageLocalRepoContext {
     val generator = new MockGenerator
     val id: UUID = generator.id
-    val store: ImageStore = new ImageStore(generator)
+    val store: ImageLocalRepo = new ImageLocalRepo(generator)
     val base64String: String = Source.fromResource("base64Image").getLines().mkString
     val emptyBase64: String = ""
   }
 
   "Image store" - {
-    "save image" in new ImageStoreContext {
-      store.saveImage(base64String) shouldBe Some(new File(s"/img/$id.gif"))
+    "save image" in new ImageLocalRepoContext {
+      store.upload(base64String) shouldBe Some(new File(s"/img/$id.gif"))
     }
 
-    "return none when pass wrong/empty string" in new ImageStoreContext {
-      store.saveImage(emptyBase64) shouldBe None
-      store.saveImage("invalid string") shouldBe None
+    "return none when pass wrong/empty string" in new ImageLocalRepoContext {
+      store.upload(emptyBase64) shouldBe None
+      store.upload("invalid string") shouldBe None
     }
   }
 

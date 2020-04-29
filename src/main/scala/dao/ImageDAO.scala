@@ -2,7 +2,7 @@ package dao
 
 import java.util.UUID
 
-import core.Album
+import components.Album
 
 case class ImageDAO(id: Option[UUID], name: String, file: String, visibility: Boolean)
 

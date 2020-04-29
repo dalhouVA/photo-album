@@ -5,29 +5,31 @@ import java.util.UUID
 
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpCredentials}
+import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.AuthenticationDirective
-import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import authentication.Authentication
-import core.{Album, Image, LoggedInUser, Role}
+import components.{Album, Image, LoggedInUser, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import dto.{InImageDTO, OutImageDTO}
 import io.circe.generic.auto._
 import org.scalatest.freespec.AnyFreeSpecLike
 import org.scalatest.matchers.should.Matchers
-import service.ImageService
+import route.Routes
+import services.album.AlbumService
+import services.image.ImageService
 
 import scala.concurrent.Future
 
-class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
+class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
   val publicImageID: UUID = UUID.randomUUID()
   val privateImageID: UUID = UUID.randomUUID()
   val nonExistentImageID: UUID = UUID.randomUUID()
   val albumID: UUID = UUID.randomUUID()
   val nonExistentAlbumID: UUID = UUID.randomUUID()
 
-  sealed trait RoutesSpecContext extends Routes {
+  sealed trait Common {
     val publicImage: Image = Image(Some(publicImageID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val privateImage: Image = Image(Some(privateImageID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
     val inImage: InImageDTO = InImageDTO("cat", "asdqwr", visibility = true)
@@ -39,83 +41,93 @@ class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest
     val album: Album = Album(Some(albumID), "Pets")
     val nonExistentAlbum: Album = Album(Some(nonExistentAlbumID), "Waters")
     val listAlbums = List(album)
-    val validAuthenticate: BasicHttpCredentials = BasicHttpCredentials("jane", "123")
-    val route: Route = routes(new MockImageService(listImages, listAlbums), new MockAuthenticate(Some(validAuthenticate)))
-    val guestRoute: Route = routes(new MockImageService(listImages, listAlbums), new MockAuthenticate(None))
     val ok: StatusCodes.Success = StatusCodes.OK
     val created: StatusCodes.Success = StatusCodes.Created
     val bad: StatusCodes.ClientError = StatusCodes.BadRequest
     val unauthorized: StatusCodes.ClientError = StatusCodes.Unauthorized
   }
 
+  sealed trait RoutesSpecContext extends Routes with Common {
+    val validAuthenticate: BasicHttpCredentials = BasicHttpCredentials("jane", "123")
+    override val auth: Authentication = new MockAuthenticate(Some(validAuthenticate))
+    override val imageService: ImageService = new MockImageService(listImages, listAlbums)
+    override val albumService: AlbumService = new MockAlbumService(listImages,listAlbums)
+  }
+
+  sealed trait GuestRoutesContext extends Routes with Common {
+    override val imageService: ImageService = new MockImageService(listImages, listAlbums)
+    override val albumService: AlbumService = new MockAlbumService(listImages,listAlbums)
+    override val auth: Authentication = new MockAuthenticate(None)
+  }
+
   "Routes" - {
     "ImageRoutes should" - {
       "Authorized user" - {
         "return list of all images" in new RoutesSpecContext {
-          Get("/images") ~> route ~> check {
+          Get("/images") ~> routes ~> check {
             status shouldBe ok
             responseAs[List[OutImageDTO]] shouldBe listImagesDTO
           }
         }
 
         "return private image by id with authorized access" in new RoutesSpecContext {
-          Get(s"/images/$privateImageID") ~> route ~> check {
+          Get(s"/images/$privateImageID") ~> routes ~> check {
             status shouldBe ok
             responseAs[Option[OutImageDTO]] shouldBe Some(privateOutImage)
           }
         }
 
         "return public image by id with authorized access" in new RoutesSpecContext {
-          Get(s"/images/$publicImageID") ~> route ~> check {
+          Get(s"/images/$publicImageID") ~> routes ~> check {
             status shouldBe ok
             responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
           }
         }
 
         "return bad request error" in new RoutesSpecContext {
-          Get(s"/images/$nonExistentImageID") ~> route ~> check {
+          Get(s"/images/$nonExistentImageID") ~> routes ~> check {
             status shouldBe bad
             responseAs[String] shouldBe "Image with this id not found"
           }
         }
 
         "create new image" in new RoutesSpecContext {
-          Post("/images/upload", content = inImage) ~> route ~> check {
+          Post("/images/upload", content = inImage) ~> routes ~> check {
             status shouldBe created
             responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
           }
         }
 
         "delete image by id" in new RoutesSpecContext {
-          Delete(s"/images/$publicImageID") ~> route ~> check {
+          Delete(s"/images/$publicImageID") ~> routes ~> check {
             status shouldBe ok
           }
         }
       }
       "Guest" - {
-        "return list of public images" in new RoutesSpecContext {
-          Get("/images") ~> guestRoute ~> check {
+        "return list of public images" in new GuestRoutesContext {
+          Get("/images") ~> routes ~> check {
             status shouldBe ok
             responseAs[List[OutImageDTO]] shouldBe listImagesDTOPublic
           }
         }
 
-        "return public image by id with guest access" in new RoutesSpecContext {
-          Get(s"/images/$publicImageID") ~> guestRoute ~> check {
+        "return public image by id with guest access" in new GuestRoutesContext {
+          Get(s"/images/$publicImageID") ~> routes ~> check {
             status shouldBe ok
             responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
           }
         }
 
-        "return unauthorized error with guest access to private image" in new RoutesSpecContext {
-          Get(s"/images/$privateImageID") ~> guestRoute ~> check {
+        "return unauthorized error with guest access to private image" in new GuestRoutesContext {
+          Get(s"/images/$privateImageID") ~> routes ~> check {
             status shouldBe unauthorized
             responseAs[String] shouldBe "You have to authorize for get access"
           }
         }
 
-        "return unauthorized error when pass invalid id" in new RoutesSpecContext {
-          Get(s"/images/$nonExistentImageID") ~> guestRoute ~> check {
+        "return unauthorized error when pass invalid id" in new GuestRoutesContext {
+          Get(s"/images/$nonExistentImageID") ~> routes ~> check {
             status shouldBe unauthorized
             responseAs[String] shouldBe "You have to authorize for get access"
           }
@@ -125,60 +137,60 @@ class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest
 
     "AlbumRoutes should" - {
       "return list of all albums" in new RoutesSpecContext {
-        Get("/albums") ~> route ~> check {
+        Get("/albums") ~> routes ~> check {
           status shouldBe ok
           responseAs[List[Album]] shouldBe listAlbums
         }
       }
 
       "return album by id" in new RoutesSpecContext {
-        Get(s"/albums/$albumID") ~> route ~> check {
+        Get(s"/albums/$albumID") ~> routes ~> check {
           status shouldBe ok
           responseAs[Album] shouldBe album
         }
       }
 
       "return error when pass invalid id" in new RoutesSpecContext {
-        Get(s"/albums/$nonExistentAlbumID") ~> route ~> check {
+        Get(s"/albums/$nonExistentAlbumID") ~> routes ~> check {
           status shouldBe bad
           responseAs[String] shouldBe "Album with this id not found"
         }
       }
 
       "return images in album" in new RoutesSpecContext {
-        Get(s"/albums/$albumID/images") ~> route ~> check {
+        Get(s"/albums/$albumID/images") ~> routes ~> check {
           status shouldBe ok
           responseAs[List[OutImageDTO]] shouldBe listImagesDTO
         }
       }
 
       "create new album" in new RoutesSpecContext {
-        Post("/albums/create", content = album) ~> route ~> check {
+        Post("/albums/create", content = album) ~> routes ~> check {
           status shouldBe created
           responseAs[Option[Album]] shouldBe Some(album)
         }
       }
 
       "create image in album" in new RoutesSpecContext {
-        Post(s"/albums/$albumID/images/upload", content = inImage) ~> route ~> check {
+        Post(s"/albums/$albumID/images/upload", content = inImage) ~> routes ~> check {
           status shouldBe created
         }
       }
 
       "insert image into album" in new RoutesSpecContext {
-        Put(s"/albums/$albumID/images/$publicImageID") ~> route ~> check {
+        Put(s"/albums/$albumID/images/$publicImageID") ~> routes ~> check {
           status shouldBe created
         }
       }
 
       "delete album" in new RoutesSpecContext {
-        Delete(s"/albums/$albumID") ~> route ~> check {
+        Delete(s"/albums/$albumID") ~> routes ~> check {
           status shouldBe ok
         }
       }
 
       "delete image in current album" in new RoutesSpecContext {
-        Delete(s"/albums/$albumID/images/$privateImageID") ~> route ~> check {
+        Delete(s"/albums/$albumID/images/$privateImageID") ~> routes ~> check {
           status shouldBe ok
         }
       }
@@ -188,33 +200,35 @@ class RoutesSpec() extends AnyFreeSpecLike with Matchers with ScalatestRouteTest
   class MockImageService(images: List[Image], albums: List[Album]) extends ImageService {
     override def upload(img: Image): Future[UUID] = Future.successful(publicImageID)
 
-    override def getImgById(image_id: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(image_id)))
+    override def getImgById(imageID: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(imageID)))
 
-    override def getAllImg: Future[List[Image]] = Future.successful(images)
+    override def getAllImg(): Future[List[Image]] = Future.successful(images)
 
     override def delete(id: UUID): Future[Unit] = Future.unit
 
-    override def getPublicImages: Future[List[Image]] = Future.successful(images.filter(_.visibility))
+    override def getPublicImages(): Future[List[Image]] = Future.successful(images.filter(_.visibility))
 
-    override def getPublicImageById(id: UUID): Future[Option[Image]] = getPublicImages.map(_.find(_.id.contains(id)))
+    override def getPublicImageById(id: UUID): Future[Option[Image]] = getPublicImages().map(_.find(_.id.contains(id)))
 
-    override def getAllAlbums: Future[List[Album]] = Future.successful(albums)
+    override def uploadImageInStorage(base64String: String): Option[File] = Some(new File("D:\\img\\empty.txt"))
+  }
 
-    override def getAlbumById(album_id: UUID): Future[Option[Album]] = Future.successful(albums.find(_.id.contains(album_id)))
+  class MockAlbumService(images: List[Image], albums: List[Album]) extends AlbumService{
+    override def getAllAlbums(): Future[List[Album]] = Future.successful(albums)
+
+    override def getAlbumById(albumID: UUID): Future[Option[Album]] = Future.successful(albums.find(_.id.contains(albumID)))
 
     override def createAlbum(album: Album): Future[UUID] = Future.successful(albumID)
 
-    override def putImageIntoAlbum(image_id: UUID, album_id: UUID): Future[Unit] = Future.unit
+    override def putImageIntoAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
 
-    override def createImageFromAlbum(image: Image, album_id: UUID): Future[UUID] = upload(image)
+    override def createImageFromAlbum(image: Image, albumID: UUID): Future[UUID] = Future.successful(publicImageID)
 
     override def deleteAlbum(uuid: UUID): Future[Unit] = Future.unit
 
-    override def getImagesByAlbumId(album_id: UUID): Future[List[Image]] = Future.successful(images)
+    override def getImagesByAlbumId(albumID: UUID): Future[List[Image]] = Future.successful(images)
 
-    override def deleteImageFromAlbum(image_id: UUID, album_id: UUID): Future[Unit] = Future.unit
-
-    override def saveImage(base64String: String): Option[File] = Some(new File("D:\\img\\empty.txt"))
+    override def deleteImageFromAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
   }
 
   class MockAuthenticate(credentials: Option[HttpCredentials]) extends Authentication {

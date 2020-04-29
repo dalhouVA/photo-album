@@ -6,35 +6,40 @@ import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive0, Route}
 import authentication.Authentication
-import core.Role._
-import core.{Album, Image, LoggedInUser, Role}
+import components.{Album, Image, LoggedInUser, Role}
+import components.Role._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import dto.InImageDTO
 import dto.converters.ImageDTOConverter
 import io.circe.generic.auto._
-import service.ImageService
-import store.Store
+import services.album.AlbumService
+import services.image.ImageService
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait Routes {
-  private def imagesRoute(service: ImageService, auth: Authentication)(implicit exc: ExecutionContext): Route = pathPrefix("images") {
+  val imageService: ImageService
+  val albumService: AlbumService
+  val auth: Authentication
+  implicit val ec: ExecutionContext = ExecutionContext.global
+
+  private def imagesRoute: Route = pathPrefix("images") {
     auth.authenticate { user =>
       authorize(user, requiredLevel = Role.User) {
         get {
           path(Segment) { id =>
-            getImageHandler(Future.successful(UUID.fromString(id)), service, StatusCodes.OK)
+            getImageHandler(Future.successful(UUID.fromString(id)), StatusCodes.OK)
           } ~
-            complete(service.getAllImg.map(_.map(ImageDTOConverter.fromImage)))
+            complete(imageService.getAllImg().map(_.map(ImageDTOConverter.fromImage)))
         } ~
           post {
             path("upload") {
               entity(as[InImageDTO]) {
                 img =>
-                  service.saveImage(img.base64Image) match {
+                  imageService.uploadImageInStorage(img.base64Image) match {
                     case Some(file) =>
-                      val img_id = service.upload(Image(None, img.name, Some(file.getAbsolutePath), img.visibility))
-                      getImageHandler(img_id, service, StatusCodes.Created)
+                      val img_id = imageService.upload(Image(None, img.name, Some(file.getAbsolutePath), img.visibility))
+                      getImageHandler(img_id, StatusCodes.Created)
                     case None => complete(StatusCodes.BadRequest, "It's not an image")
                   }
               }
@@ -42,52 +47,52 @@ trait Routes {
           } ~
           delete {
             path(Segment) { id =>
-              complete(service.delete(UUID.fromString(id)))
+              complete(imageService.delete(UUID.fromString(id)))
             }
           }
       } ~
         authorize(user, requiredLevel = Role.Guest) {
           get {
             path(Segment) { id =>
-              onSuccess(service.getPublicImageById(UUID.fromString(id)).map {
+              onSuccess(imageService.getPublicImageById(UUID.fromString(id)).map {
                 case Some(img) => complete(StatusCodes.OK, ImageDTOConverter.fromImage(img))
                 case None => complete(StatusCodes.Unauthorized, "You have to authorize for get access")
               }) { result => result }
             } ~
-              complete(service.getPublicImages.map(_.map(ImageDTOConverter.fromImage)))
+              complete(imageService.getPublicImages().map(_.map(ImageDTOConverter.fromImage)))
           }
         }
     }
   }
 
-  private def albumRoute(service: ImageService, auth: Authentication)(implicit exc: ExecutionContext): Route = pathPrefix("albums") {
+  private def albumRoute: Route = pathPrefix("albums") {
     auth.authenticate { user =>
       authorize(user, requiredLevel = Role.User) {
         get {
           path(Segment) { id =>
-            getAlbumHandler(Future.successful(UUID.fromString(id)), service, StatusCodes.OK)
+            getAlbumHandler(Future.successful(UUID.fromString(id)), StatusCodes.OK)
           } ~
-            pathPrefix(Segment) { album_id =>
+            pathPrefix(Segment) { albumID =>
               path("images") {
-                complete(service.getImagesByAlbumId(UUID.fromString(album_id)).map(_.map(ImageDTOConverter.fromImage)))
+                complete(albumService.getImagesByAlbumId(UUID.fromString(albumID)).map(_.map(ImageDTOConverter.fromImage)))
               }
-            } ~ complete(service.getAllAlbums)
+            } ~ complete(albumService.getAllAlbums())
         } ~
           post {
             path("create") {
               entity(as[Album]) { album =>
-                val album_id = service.createAlbum(Album(None, album.name))
-                getAlbumHandler(album_id, service, StatusCodes.Created)
+                val albumID = albumService.createAlbum(Album(None, album.name))
+                getAlbumHandler(albumID, StatusCodes.Created)
               }
             } ~
-              pathPrefix(Segment) { album_id =>
+              pathPrefix(Segment) { albumID =>
                 pathPrefix("images") {
                   path("upload") {
                     entity(as[InImageDTO]) { img =>
-                      service.saveImage(img.base64Image) match {
+                      imageService.uploadImageInStorage(img.base64Image) match {
                         case Some(file) =>
-                          val img_id = service.createImageFromAlbum(Image(None, img.name, Some(file.getAbsolutePath), img.visibility), UUID.fromString(album_id))
-                          getImageHandler(img_id, service, StatusCodes.Created)
+                          val imgID = albumService.createImageFromAlbum(Image(None, img.name, Some(file.getAbsolutePath), img.visibility), UUID.fromString(albumID))
+                          getImageHandler(imgID, StatusCodes.Created)
                         case None => complete(StatusCodes.BadRequest, "It's not an image")
                       }
                     }
@@ -99,19 +104,19 @@ trait Routes {
             pathPrefix(Segment) { album_id =>
               pathPrefix("images") {
                 path(Segment) { image_id =>
-                  complete(StatusCodes.Created, service.putImageIntoAlbum(UUID.fromString(image_id), UUID.fromString(album_id)))
+                  complete(StatusCodes.Created, albumService.putImageIntoAlbum(UUID.fromString(image_id), UUID.fromString(album_id)))
                 }
               }
             }
           } ~
           delete {
             path(Segment) { album_id =>
-              complete(service.deleteAlbum(UUID.fromString(album_id)))
+              complete(albumService.deleteAlbum(UUID.fromString(album_id)))
             } ~
               pathPrefix(Segment) { album_id =>
                 pathPrefix("images") {
                   path(Segment) { image_id =>
-                    complete(service.deleteImageFromAlbum(UUID.fromString(image_id), UUID.fromString(album_id)))
+                    complete(albumService.deleteImageFromAlbum(UUID.fromString(image_id), UUID.fromString(album_id)))
                   }
                 }
               }
@@ -120,26 +125,26 @@ trait Routes {
     }
   }
 
-  private def getImageHandler(fid: Future[UUID], service: ImageService, successCode: StatusCode)(implicit ex: ExecutionContext): Route =
+  private def getImageHandler(fid: Future[UUID], successCode: StatusCode): Route =
     onSuccess(for {
       id <- fid
-      img <- service.getImgById(id)
+      img <- imageService.getImgById(id)
     } yield img match {
       case Some(image) => complete(successCode, ImageDTOConverter.fromImage(image))
       case None => complete(StatusCodes.BadRequest, "Image with this id not found")
     }) { result => result }
 
-  private def getAlbumHandler(fid: Future[UUID], service: ImageService, successCode: StatusCode)(implicit ex: ExecutionContext): Route =
+  private def getAlbumHandler(fid: Future[UUID], successCode: StatusCode): Route =
     onSuccess(for {
       id <- fid
-      alb <- service.getAlbumById(id)
+      alb <- albumService.getAlbumById(id)
     } yield alb match {
       case Some(album) => complete(successCode, album)
       case None => complete(StatusCodes.BadRequest, "Album with this id not found")
     }) { result => result }
 
-  def routes(service: ImageService, auth: Authentication)(implicit exc: ExecutionContext): Route =
-    imagesRoute(service, auth) ~ albumRoute(service, auth)
+  def routes: Route =
+    imagesRoute ~ albumRoute
 
   private def authorize(user: LoggedInUser, requiredLevel: UserRole): Directive0 =
     if (user.role == requiredLevel)

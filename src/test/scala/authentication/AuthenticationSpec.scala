@@ -3,8 +3,7 @@ package authentication
 import akka.http.scaladsl.model.headers.BasicHttpCredentials
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import core.{LoggedInUser, Role}
-import core.LoggedInUser._
+import components.{LoggedInUser, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import org.h2.engine.User
