@@ -6,8 +6,9 @@ import components.{Album, Image}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.freespec.AnyFreeSpecLike
 import org.scalatest.matchers.should.Matchers
-import repository.AlbumRepo
+import repository.{AlbumRepo, PhotoRepo}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
@@ -23,8 +24,8 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     val listImages: List[Image] = List(publicImage, privateImage)
     val listAlbums: List[Album] = List(album)
     val base64: String = "base64String"
-    val emptyBase64:String = ""
-    val service = new DBAlbumService(new MockAlbumRepo(listImages, listAlbums))
+    val emptyBase64: String = ""
+    val service = new DBAlbumService(new MockAlbumRepo(listImages, listAlbums), new MockPhotoRepo)
   }
 
   "Album service" - {
@@ -43,7 +44,7 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
 
     "create new image in existing album" in new AlbumServiceSpecContext {
       service.createImageFromAlbum(privateImage, albumID, base64).futureValue shouldBe Some(privateImageID)
-      service.createImageFromAlbum(privateImage,albumID,emptyBase64).futureValue shouldBe None
+      service.createImageFromAlbum(privateImage, albumID, emptyBase64).futureValue shouldBe None
     }
 
     "put image into album" in new AlbumServiceSpecContext {
@@ -63,7 +64,7 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     }
 
     "return image in album" in new AlbumServiceSpecContext {
-      service.getImage(albumID,publicImageID).futureValue shouldBe Some(publicImage)
+      service.getImage(albumID, publicImageID).futureValue shouldBe Some(publicImage)
     }
   }
 
@@ -77,11 +78,10 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
 
     override def putImageIntoAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
 
-    override def createImageFromAlbum(image: Image, albumID: UUID, base64String: String): Future[Option[UUID]] =
-      if (base64String.isEmpty)
-        Future.successful(None)
-      else
-        Future.successful(Some(privateImageID))
+    override def createImageFromAlbum(image: Image, albumID: UUID, path: Option[String]): Future[Option[UUID]] = path match {
+      case Some(_) => Future.successful(Some(privateImageID))
+      case None => Future.successful(None)
+    }
 
     override def getImagesByAlbumID(albumID: UUID): Future[List[Image]] = Future.successful(images)
 
@@ -90,6 +90,14 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     override def deleteImageFromAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
 
     override def getImage(imageID: UUID, albumID: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(imageID)))
+  }
+
+  class MockPhotoRepo extends PhotoRepo {
+    override def uploadImageInRepo(base64String: String): Future[Option[String]] =
+      if (base64String.isEmpty)
+        Future.successful(None)
+      else
+        Future.successful(Some("D:\\img\\"))
   }
 
 }

@@ -7,7 +7,7 @@ import components.{Album, Image}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.freespec.AnyFreeSpecLike
 import org.scalatest.matchers.should.Matchers
-import repository.{ImageRepo, Repo}
+import repository.{ImageRepo, PhotoRepo}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -29,7 +29,7 @@ class ImageServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     val listImagesPublic: List[Image] = listImages.filter(_.visibility)
     val base64: String = "base64String"
     val emptyBase64:String = ""
-    val service = new DBImageService(new MockImageRepo(listImages, listAlbums))
+    val service = new DBImageService(new MockImageRepo(listImages, listAlbums),new MockPhotoRepo)
   }
 
   "Image service" - {
@@ -65,11 +65,11 @@ class ImageServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
 
   class MockImageRepo(images: List[Image], albums: List[Album]) extends ImageRepo {
 
-    override def createImage(img: Image, base64String: String): Future[Option[UUID]] =
-      if (base64String.isEmpty)
-        Future.successful(None)
-      else
-        Future.successful(Some(publicImageID))
+    override def createImage(img: Image, path: Option[String]): Future[Option[UUID]] = path match {
+      case Some(_) => Future.successful(Some(publicImageID))
+      case None =>Future.successful(None)
+    }
+
 
     override def getAllImages(): Future[List[Image]] = Future.successful(images)
 
@@ -78,4 +78,11 @@ class ImageServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     override def getImageByID(imageID: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(imageID)))
   }
 
+  class MockPhotoRepo extends PhotoRepo{
+    override def uploadImageInRepo(base64String: String): Future[Option[String]] =
+      if (base64String.isEmpty)
+        Future.successful(None)
+      else
+        Future.successful(Some("D:\\img\\"))
+  }
 }

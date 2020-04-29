@@ -26,17 +26,19 @@ class AlbumRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
     PatienceConfig(timeout = Span(1, Seconds), interval = Span(20, Millis))
 
   sealed trait AlbumRepoContext {
-    val generator = new MockUUIDGenerator
-    val repo = new AlbumRepoDB(generator) with H2DBMem
-    val newImageID: UUID = generator.id
-    val newAlbumID: UUID = generator.id
+    val mockGenerator = new MockUUIDGenerator
+    val albumRepo: AlbumRepoDB with H2DBMem = new AlbumRepoDB with H2DBMem {
+      override val generator: Generator = mockGenerator
+    }
+    val newImageID: UUID = mockGenerator.id
+    val newAlbumID: UUID = mockGenerator.id
     val newAlbum: Album = Album(None, "Pets")
     val rndImage: Image = Image(Some(rndImageID), "duck.jpg", Some("D:\\img\\bird"), visibility = true)
     val publicImage: Image = Image(Some(publicImageID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val privateImage: Image = Image(Some(privateImageID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
     val newImage: Image = Image(Some(newImageID), "pig.png", Some(s"D:\\img\\$newImageID.gif"), visibility = false)
-    val base64String: String = Source.fromResource("base64Image").getLines().mkString
-    val emptyBase64String: String = ""
+    val pathFromBase64String: Option[String] = Some(s"D:\\img\\$newImageID.gif")
+    val emptyPathFromBase64String: Option[String] = None
     val listImages: List[Image] = List(publicImage, privateImage, rndImage)
     val listAlbums = List(album)
   }
@@ -73,40 +75,40 @@ class AlbumRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
 
   "Album repository" - {
     "create new album" in new AlbumRepoContext {
-      repo.createAlbum(newAlbum).futureValue shouldBe newAlbumID
+      albumRepo.createAlbum(newAlbum).futureValue shouldBe newAlbumID
     }
 
     "get album by id" in new AlbumRepoContext {
-      repo.getAlbumById(albumID).futureValue shouldBe Some(album)
+      albumRepo.getAlbumById(albumID).futureValue shouldBe Some(album)
     }
 
     "get all albums" in new AlbumRepoContext {
-      repo.getAllAlbums().futureValue shouldBe listAlbums
+      albumRepo.getAllAlbums().futureValue shouldBe listAlbums
     }
 
     "delete album" in new AlbumRepoContext {
-      repo.deleteAlbum(albumID).futureValue
-      repo.getAllAlbums().futureValue shouldBe Nil
+      albumRepo.deleteAlbum(albumID).futureValue
+      albumRepo.getAllAlbums().futureValue shouldBe Nil
     }
 
     "createImageFromAlbum" in new AlbumRepoContext {
-      repo.createImageFromAlbum(newImage, albumID,base64String).futureValue shouldBe Some(newImageID)
-      repo.getImagesByAlbumID(albumID).futureValue shouldBe List(newImage, publicImage, privateImage)
-      repo.createImageFromAlbum(newImage, albumID,emptyBase64String).futureValue shouldBe None
+      albumRepo.createImageFromAlbum(newImage, albumID, pathFromBase64String).futureValue shouldBe Some(newImageID)
+      albumRepo.getImagesByAlbumID(albumID).futureValue shouldBe List(newImage, publicImage, privateImage)
+      albumRepo.createImageFromAlbum(newImage, albumID, emptyPathFromBase64String).futureValue shouldBe None
     }
 
     "return images in album" in new AlbumRepoContext {
-      repo.getImagesByAlbumID(albumID).futureValue shouldBe List(publicImage, privateImage)
+      albumRepo.getImagesByAlbumID(albumID).futureValue shouldBe List(publicImage, privateImage)
     }
 
     "put image in album" in new AlbumRepoContext {
-      repo.putImageIntoAlbum(rndImageID, albumID).futureValue
-      repo.getImagesByAlbumID(albumID).futureValue shouldBe List(rndImage, publicImage, privateImage)
+      albumRepo.putImageIntoAlbum(rndImageID, albumID).futureValue
+      albumRepo.getImagesByAlbumID(albumID).futureValue shouldBe List(rndImage, publicImage, privateImage)
     }
 
     "delete image from album" in new AlbumRepoContext {
-      repo.deleteImageFromAlbum(privateImageID, albumID).futureValue
-      repo.getImagesByAlbumID(albumID).futureValue shouldBe List(publicImage)
+      albumRepo.deleteImageFromAlbum(privateImageID, albumID).futureValue
+      albumRepo.getImagesByAlbumID(albumID).futureValue shouldBe List(publicImage)
     }
   }
 

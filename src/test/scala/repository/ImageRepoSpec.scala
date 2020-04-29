@@ -24,15 +24,17 @@ class ImageRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
     PatienceConfig(timeout = Span(1, Seconds), interval = Span(20, Millis))
 
   sealed trait ImageRepoContext {
-    val generator = new MockUUIDGenerator
-    val repo = new ImageRepoDB(generator) with H2DBMem
-    val newImageID: UUID = generator.id
+    val mockGenerator = new MockUUIDGenerator
+    val imageRepo: ImageRepoDB with H2DBMem = new ImageRepoDB with H2DBMem {
+      override val generator: Generator = mockGenerator
+    }
+    val newImageID: UUID = mockGenerator.id
     val rndImage: Image = Image(Some(rndImageID), "duck.jpg", Some("D:\\img\\bird"), visibility = true)
     val publicImage: Image = Image(Some(publicImageID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val privateImage: Image = Image(Some(privateImageID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
     val newImage: Image = Image(Some(newImageID), "pig.png", Some(s"D:\\img\\$newImageID.gif"), visibility = false)
-    val base64String:String = Source.fromResource("base64Image").getLines().mkString
-    val emptyBase64String = ""
+    val base64String: Option[String] =  Some(s"D:\\img\\$newImageID.gif")
+    val emptyBase64String: Option[String] = None
     val listImages: List[Image] = List(publicImage, privateImage, rndImage)
   }
 
@@ -63,24 +65,24 @@ class ImageRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
 
   "Image repository" - {
     "return all entities" in new ImageRepoContext {
-      repo.getAllImages().futureValue shouldBe listImages
+      imageRepo.getAllImages().futureValue shouldBe listImages
     }
 
     "create new entity in database" in new ImageRepoContext {
-      repo.createImage(newImage,base64String).futureValue shouldBe Some(newImageID)
-      repo.getAllImages().futureValue shouldBe listImages ::: List(newImage)
-      repo.createImage(newImage,emptyBase64String).futureValue shouldBe None
+      imageRepo.createImage(newImage, base64String).futureValue shouldBe Some(newImageID)
+      imageRepo.getAllImages().futureValue shouldBe listImages ::: List(newImage)
+      imageRepo.createImage(newImage, emptyBase64String).futureValue shouldBe None
     }
 
     "get entity by id" in new ImageRepoContext {
-      repo.getImageByID(publicImageID).futureValue shouldBe Some(publicImage)
-      repo.getImageByID(privateImageID).futureValue shouldBe Some(privateImage)
-      repo.getImageByID(newImageID).futureValue shouldBe None
+      imageRepo.getImageByID(publicImageID).futureValue shouldBe Some(publicImage)
+      imageRepo.getImageByID(privateImageID).futureValue shouldBe Some(privateImage)
+      imageRepo.getImageByID(newImageID).futureValue shouldBe None
     }
 
     "delete entity" in new ImageRepoContext {
-      repo.delete(publicImageID).futureValue
-      repo.getAllImages().futureValue shouldBe List(privateImage, rndImage)
+      imageRepo.delete(publicImageID).futureValue
+      imageRepo.getAllImages().futureValue shouldBe List(privateImage, rndImage)
     }
   }
 
