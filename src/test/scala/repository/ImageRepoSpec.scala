@@ -13,6 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.Future
+import scala.io.Source
 
 class ImageRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with BeforeAndAfterEach {
   val publicImageID: UUID = UUID.randomUUID()
@@ -29,8 +30,9 @@ class ImageRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
     val rndImage: Image = Image(Some(rndImageID), "duck.jpg", Some("D:\\img\\bird"), visibility = true)
     val publicImage: Image = Image(Some(publicImageID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val privateImage: Image = Image(Some(privateImageID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
-    val newImage: Image = Image(Some(newImageID), "pig.png", Some("D:\\img"), visibility = false)
-
+    val newImage: Image = Image(Some(newImageID), "pig.png", Some(s"D:\\img\\$newImageID.gif"), visibility = false)
+    val base64String:String = Source.fromResource("base64Image").getLines().mkString
+    val emptyBase64String = ""
     val listImages: List[Image] = List(publicImage, privateImage, rndImage)
   }
 
@@ -65,8 +67,9 @@ class ImageRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
     }
 
     "create new entity in database" in new ImageRepoContext {
-      repo.createImage(newImage).futureValue shouldBe newImageID
+      repo.createImage(newImage,base64String).futureValue shouldBe Some(newImageID)
       repo.getAllImages().futureValue shouldBe listImages ::: List(newImage)
+      repo.createImage(newImage,emptyBase64String).futureValue shouldBe None
     }
 
     "get entity by id" in new ImageRepoContext {

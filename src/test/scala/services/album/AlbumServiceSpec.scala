@@ -22,6 +22,8 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     val album: Album = Album(Some(albumID), "Pets")
     val listImages: List[Image] = List(publicImage, privateImage)
     val listAlbums: List[Album] = List(album)
+    val base64: String = "base64String"
+    val emptyBase64:String = ""
     val service = new DBAlbumService(new MockAlbumRepo(listImages, listAlbums))
   }
 
@@ -40,7 +42,8 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     }
 
     "create new image in existing album" in new AlbumServiceSpecContext {
-      service.createImageFromAlbum(privateImage, albumID).futureValue shouldBe privateImageID
+      service.createImageFromAlbum(privateImage, albumID, base64).futureValue shouldBe Some(privateImageID)
+      service.createImageFromAlbum(privateImage,albumID,emptyBase64).futureValue shouldBe None
     }
 
     "put image into album" in new AlbumServiceSpecContext {
@@ -58,6 +61,10 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     "delete image in album" in new AlbumServiceSpecContext {
       service.deleteImageFromAlbum(privateImageID, albumID) shouldBe Future.unit
     }
+
+    "return image in album" in new AlbumServiceSpecContext {
+      service.getImage(albumID,publicImageID).futureValue shouldBe Some(publicImage)
+    }
   }
 
   class MockAlbumRepo(images: List[Image], albums: List[Album]) extends AlbumRepo {
@@ -70,13 +77,19 @@ class AlbumServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
 
     override def putImageIntoAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
 
-    override def createImageFromAlbum(image: Image, albumID: UUID): Future[UUID] = Future.successful(privateImageID)
+    override def createImageFromAlbum(image: Image, albumID: UUID, base64String: String): Future[Option[UUID]] =
+      if (base64String.isEmpty)
+        Future.successful(None)
+      else
+        Future.successful(Some(privateImageID))
 
     override def getImagesByAlbumID(albumID: UUID): Future[List[Image]] = Future.successful(images)
 
     override def deleteAlbum(id: UUID): Future[Unit] = Future.unit
 
     override def deleteImageFromAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
+
+    override def getImage(imageID: UUID, albumID: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(imageID)))
   }
 
 }

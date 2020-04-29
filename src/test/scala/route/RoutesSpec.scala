@@ -1,6 +1,5 @@
 package route
 
-import java.io.File
 import java.util.UUID
 
 import akka.http.scaladsl.model.StatusCodes
@@ -10,13 +9,13 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.AuthenticationDirective
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import authentication.Authentication
+import authorization.{Authorization, BasicAuthorization}
 import components.{Album, Image, LoggedInUser, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import dto.{InImageDTO, OutImageDTO}
 import io.circe.generic.auto._
 import org.scalatest.freespec.AnyFreeSpecLike
 import org.scalatest.matchers.should.Matchers
-import route.Routes
 import services.album.AlbumService
 import services.image.ImageService
 
@@ -32,7 +31,8 @@ class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
   sealed trait Common {
     val publicImage: Image = Image(Some(publicImageID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val privateImage: Image = Image(Some(privateImageID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
-    val inImage: InImageDTO = InImageDTO("cat", "asdqwr", visibility = true)
+    val inImageWithCorrectBase64String: InImageDTO = InImageDTO("cat", visibility = true, base64Image = "base64String")
+    val inImageWithInvalidBase64String: InImageDTO = InImageDTO("duck", visibility = false, base64Image = "")
     val listImages: List[Image] = List(publicImage, privateImage)
     val publicOutImage: OutImageDTO = OutImageDTO(publicImageID, "cat.jpg", "D:\\img\\pet", visibility = true)
     val privateOutImage: OutImageDTO = OutImageDTO(privateImageID, "dog.jpg", "D:\\img\\pet", visibility = false)
@@ -49,15 +49,17 @@ class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
 
   sealed trait RoutesSpecContext extends Routes with Common {
     val validAuthenticate: BasicHttpCredentials = BasicHttpCredentials("jane", "123")
+    override val authorization: Authorization = new BasicAuthorization
     override val auth: Authentication = new MockAuthenticate(Some(validAuthenticate))
     override val imageService: ImageService = new MockImageService(listImages, listAlbums)
-    override val albumService: AlbumService = new MockAlbumService(listImages,listAlbums)
+    override val albumService: AlbumService = new MockAlbumService(listImages, listAlbums)
   }
 
   sealed trait GuestRoutesContext extends Routes with Common {
-    override val imageService: ImageService = new MockImageService(listImages, listAlbums)
-    override val albumService: AlbumService = new MockAlbumService(listImages,listAlbums)
     override val auth: Authentication = new MockAuthenticate(None)
+    override val authorization: Authorization = new BasicAuthorization
+    override val imageService: ImageService = new MockImageService(listImages, listAlbums)
+    override val albumService: AlbumService = new MockAlbumService(listImages, listAlbums)
   }
 
   "Routes" - {
@@ -92,9 +94,16 @@ class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
         }
 
         "create new image" in new RoutesSpecContext {
-          Post("/images/upload", content = inImage) ~> routes ~> check {
+          Post("/images/upload", content = inImageWithCorrectBase64String) ~> routes ~> check {
             status shouldBe created
             responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
+          }
+        }
+
+        "return bad request when base64 string is invalid" in new RoutesSpecContext {
+          Post("/images/upload", content = inImageWithInvalidBase64String) ~> routes ~> check {
+            status shouldBe bad
+            responseAs[String] shouldBe "Invalid image"
           }
         }
 
@@ -172,8 +181,16 @@ class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
       }
 
       "create image in album" in new RoutesSpecContext {
-        Post(s"/albums/$albumID/images/upload", content = inImage) ~> routes ~> check {
+        Post(s"/albums/$albumID/images/upload", content = inImageWithCorrectBase64String) ~> routes ~> check {
           status shouldBe created
+          responseAs[Option[OutImageDTO]] shouldBe Some(publicOutImage)
+        }
+      }
+
+      "return bad request when base64string is invalid" in new RoutesSpecContext {
+        Post(s"/albums/$albumID/images/upload", content = inImageWithInvalidBase64String) ~> routes ~> check {
+          status shouldBe bad
+          responseAs[String] shouldBe "Invalid image"
         }
       }
 
@@ -198,7 +215,11 @@ class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
   }
 
   class MockImageService(images: List[Image], albums: List[Album]) extends ImageService {
-    override def upload(img: Image): Future[UUID] = Future.successful(publicImageID)
+    override def upload(img: Image, base64String: String): Future[Option[UUID]] =
+      if (base64String.isEmpty)
+        Future.successful(None)
+      else
+        Future.successful(Some(publicImageID))
 
     override def getImgById(imageID: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(imageID)))
 
@@ -210,10 +231,9 @@ class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
 
     override def getPublicImageById(id: UUID): Future[Option[Image]] = getPublicImages().map(_.find(_.id.contains(id)))
 
-    override def uploadImageInStorage(base64String: String): Option[File] = Some(new File("D:\\img\\empty.txt"))
   }
 
-  class MockAlbumService(images: List[Image], albums: List[Album]) extends AlbumService{
+  class MockAlbumService(images: List[Image], albums: List[Album]) extends AlbumService {
     override def getAllAlbums(): Future[List[Album]] = Future.successful(albums)
 
     override def getAlbumById(albumID: UUID): Future[Option[Album]] = Future.successful(albums.find(_.id.contains(albumID)))
@@ -222,13 +242,19 @@ class RoutesSpec extends AnyFreeSpecLike with Matchers with ScalatestRouteTest {
 
     override def putImageIntoAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
 
-    override def createImageFromAlbum(image: Image, albumID: UUID): Future[UUID] = Future.successful(publicImageID)
+    override def createImageFromAlbum(image: Image, albumID: UUID, base64String: String): Future[Option[UUID]] =
+      if (base64String.isEmpty)
+        Future.successful(None)
+      else
+        Future.successful(Some(publicImageID))
 
     override def deleteAlbum(uuid: UUID): Future[Unit] = Future.unit
 
     override def getImagesByAlbumId(albumID: UUID): Future[List[Image]] = Future.successful(images)
 
     override def deleteImageFromAlbum(imageID: UUID, albumID: UUID): Future[Unit] = Future.unit
+
+    override def getImage(albumID: UUID, imageID: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(imageID)))
   }
 
   class MockAuthenticate(credentials: Option[HttpCredentials]) extends Authentication {

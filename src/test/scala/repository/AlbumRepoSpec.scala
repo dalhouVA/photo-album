@@ -13,6 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.Future
+import scala.io.Source
 
 class AlbumRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with BeforeAndAfterEach {
   val publicImageID: UUID = UUID.randomUUID()
@@ -33,8 +34,9 @@ class AlbumRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
     val rndImage: Image = Image(Some(rndImageID), "duck.jpg", Some("D:\\img\\bird"), visibility = true)
     val publicImage: Image = Image(Some(publicImageID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val privateImage: Image = Image(Some(privateImageID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
-    val newImage: Image = Image(Some(newImageID), "pig.png", Some("D:\\img"), visibility = false)
-
+    val newImage: Image = Image(Some(newImageID), "pig.png", Some(s"D:\\img\\$newImageID.gif"), visibility = false)
+    val base64String: String = Source.fromResource("base64Image").getLines().mkString
+    val emptyBase64String: String = ""
     val listImages: List[Image] = List(publicImage, privateImage, rndImage)
     val listAlbums = List(album)
   }
@@ -88,8 +90,9 @@ class AlbumRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
     }
 
     "createImageFromAlbum" in new AlbumRepoContext {
-      repo.createImageFromAlbum(newImage, albumID).futureValue shouldBe newImageID
+      repo.createImageFromAlbum(newImage, albumID,base64String).futureValue shouldBe Some(newImageID)
       repo.getImagesByAlbumID(albumID).futureValue shouldBe List(newImage, publicImage, privateImage)
+      repo.createImageFromAlbum(newImage, albumID,emptyBase64String).futureValue shouldBe None
     }
 
     "return images in album" in new AlbumRepoContext {
