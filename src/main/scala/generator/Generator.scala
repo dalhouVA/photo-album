@@ -4,10 +4,10 @@ import java.util.UUID
 
 trait Generator {
 
-  def id:UUID
+  def id: UUID
 
 }
 
-class UUIDGenerator extends Generator{
+class UUIDGenerator extends Generator {
   override def id: UUID = UUID.randomUUID()
 }

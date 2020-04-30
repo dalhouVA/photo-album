@@ -2,15 +2,15 @@ package database
 
 import java.util.UUID
 
-import components.{Album, LoggedInUser}
 import components.Role.{Guest, User, UserRole}
+import components.{Album, LoggedInUser}
 import dao.ImageDAO
 import slick.ast.BaseTypedType
 import slick.jdbc.JdbcType
 
 trait Tables {
 
-  this:DB =>
+  this: DB =>
 
   import config.api._
 
@@ -26,13 +26,13 @@ trait Tables {
 
 
   class Images(tag: Tag) extends Table[ImageDAO](tag, "IMAGES") {
-    def id = column[UUID]("ID", O.PrimaryKey)
+    def id: Rep[UUID] = column[UUID]("ID", O.PrimaryKey)
 
-    def name = column[String]("NAME")
+    def name: Rep[String] = column[String]("NAME")
 
-    def uri = column[String]("URI")
+    def uri: Rep[String] = column[String]("URI")
 
-    def visibility = column[Boolean]("VISIBILITY")
+    def visibility: Rep[Boolean] = column[Boolean]("VISIBILITY")
 
 
     def * = (id.?, name, uri, visibility) <> ((ImageDAO.apply _).tupled, ImageDAO.unapply)
@@ -42,11 +42,11 @@ trait Tables {
   val images = TableQuery[Images]
 
   class Users(tag: Tag) extends Table[LoggedInUser](tag, "USERS") {
-    def name = column[String]("NAME", O.Unique)
+    def name: Rep[String] = column[String]("NAME", O.Unique)
 
-    def pass = column[String]("PASSWORD")
+    def pass: Rep[String] = column[String]("PASSWORD")
 
-    def role = column[UserRole]("ROLE")
+    def role: Rep[UserRole] = column[UserRole]("ROLE")
 
     def * = (name, pass, role) <> ((LoggedInUser.apply _).tupled, LoggedInUser.unapply)
   }
@@ -54,9 +54,9 @@ trait Tables {
   val users = TableQuery[Users]
 
   class Albums(tag: Tag) extends Table[Album](tag, "ALBUMS") {
-    def id = column[UUID]("ID", O.PrimaryKey)
+    def id: Rep[UUID] = column[UUID]("ID", O.PrimaryKey)
 
-    def name = column[String]("NAME")
+    def name: Rep[String] = column[String]("NAME")
 
     def * = (id.?, name) <> (Album.tupled, Album.unapply)
   }
@@ -66,9 +66,9 @@ trait Tables {
   case class ImageAlbum(image_id: UUID, album_id: UUID)
 
   class ImageAlbums(tag: Tag) extends Table[ImageAlbum](tag, "IMAGE_ALBUMS") {
-    def image_id = column[UUID]("IMAGE_ID")
+    def image_id: Rep[UUID] = column[UUID]("IMAGE_ID")
 
-    def album_id = column[UUID]("ALBUM_ID")
+    def album_id: Rep[UUID] = column[UUID]("ALBUM_ID")
 
     def UX_imageID_albumID = index("UX_image-albums_imageID_albumID", (image_id, album_id), unique = true)
 

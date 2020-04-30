@@ -13,7 +13,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.Future
-import scala.io.Source
 
 class AlbumRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with BeforeAndAfterEach {
   val publicImageID: UUID = UUID.randomUUID()

@@ -13,7 +13,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.Future
-import scala.io.Source
 
 class ImageRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with BeforeAndAfterEach {
   val publicImageID: UUID = UUID.randomUUID()
@@ -33,7 +32,7 @@ class ImageRepoSpec extends AnyFreeSpecLike with Matchers with ScalaFutures with
     val publicImage: Image = Image(Some(publicImageID), "cat.jpg", Some("D:\\img\\pet"), visibility = true)
     val privateImage: Image = Image(Some(privateImageID), "dog.jpg", Some("D:\\img\\pet"), visibility = false)
     val newImage: Image = Image(Some(newImageID), "pig.png", Some(s"D:\\img\\$newImageID.gif"), visibility = false)
-    val base64String: Option[String] =  Some(s"D:\\img\\$newImageID.gif")
+    val base64String: Option[String] = Some(s"D:\\img\\$newImageID.gif")
     val emptyBase64String: Option[String] = None
     val listImages: List[Image] = List(publicImage, privateImage, rndImage)
   }

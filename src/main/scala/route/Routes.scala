@@ -7,17 +7,17 @@ import authorization.Authorization
 import services.album.AlbumService
 import services.image.ImageService
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.ExecutionContext.Implicits.global
 
 trait Routes {
   val imageService: ImageService
   val albumService: AlbumService
   val auth: Authentication
   val authorization: Authorization
-  implicit val context: ExecutionContext = ExecutionContext.global
 
-   def imagesRoute: Route = new ImageRoute(imageService, auth, authorization).route
-   def albumRoute: Route = new AlbumRoute(albumService, auth, authorization).route
+  def imagesRoute: Route = new ImageRoute(imageService, auth, authorization).route
+
+  def albumRoute: Route = new AlbumRoute(albumService, auth, authorization).route
 
   def routes: Route =
     imagesRoute ~ albumRoute

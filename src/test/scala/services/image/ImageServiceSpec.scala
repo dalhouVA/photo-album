@@ -28,14 +28,14 @@ class ImageServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     val listAlbums: List[Album] = List(album)
     val listImagesPublic: List[Image] = listImages.filter(_.visibility)
     val base64: String = "base64String"
-    val emptyBase64:String = ""
-    val service = new DBImageService(new MockImageRepo(listImages, listAlbums),new MockPhotoRepo)
+    val emptyBase64: String = ""
+    val service = new DBImageService(new MockImageRepo(listImages, listAlbums), new MockPhotoRepo)
   }
 
   "Image service" - {
     "upload image with valid base64 string" in new ImageServiceSpecContext {
       service.upload(publicImage, base64).futureValue shouldBe Some(publicImageID)
-      service.upload(publicImage,emptyBase64).futureValue shouldBe None
+      service.upload(publicImage, emptyBase64).futureValue shouldBe None
     }
 
     "return all images" in new ImageServiceSpecContext {
@@ -67,7 +67,7 @@ class ImageServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
 
     override def createImage(img: Image, path: Option[String]): Future[Option[UUID]] = path match {
       case Some(_) => Future.successful(Some(publicImageID))
-      case None =>Future.successful(None)
+      case None => Future.successful(None)
     }
 
 
@@ -78,11 +78,12 @@ class ImageServiceSpec extends AnyFreeSpecLike with Matchers with ScalaFutures {
     override def getImageByID(imageID: UUID): Future[Option[Image]] = Future.successful(images.find(_.id.contains(imageID)))
   }
 
-  class MockPhotoRepo extends PhotoRepo{
+  class MockPhotoRepo extends PhotoRepo {
     override def uploadImageInRepo(base64String: String): Future[Option[String]] =
       if (base64String.isEmpty)
         Future.successful(None)
       else
         Future.successful(Some("D:\\img\\"))
   }
+
 }

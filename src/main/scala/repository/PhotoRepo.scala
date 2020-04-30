@@ -13,7 +13,7 @@ trait PhotoRepo {
   def uploadImageInRepo(base64String: String): Future[Option[String]]
 }
 
-class LocalPhotoRepo(generator: Generator)(implicit ec:ExecutionContext) extends PhotoRepo {
+class LocalPhotoRepo(generator: Generator)(implicit ec: ExecutionContext) extends PhotoRepo {
   override def uploadImageInRepo(base64String: String): Future[Option[String]] = Future(Try {
     val base64 = base64String.split(",")
     val (data, img_string) = (base64.head, base64.last)
